@@ -133,11 +133,11 @@ Standardgewichtung:
 - Rare: 50
 - Long: 50
 
-Die **Benutzer-/Konfigurationsskala für Gewichtungen ist 1 bis 100**.
+Die **Benutzer-/Konfigurationsskala für Gewichtungen ist 0 bis 100**.
 
 Für die mathematische Berechnung dürfen die Werte intern auf Faktoren im Bereich 0.0 bis 1.0 normalisiert werden. Diese interne Darstellung ist kein Benutzerwert.
 
-Rare und Long sollen zusammen 100 ergeben. Wie die spätere UI die Kopplung der beiden Werte umsetzt, wird bei der HA-App-Implementierung festgelegt.
+Rare und Long sollen zusammen 100 ergeben. Damit sind auch die Extremstellungen `100 / 0` (nur Rare) und `0 / 100` (nur Long) möglich. Wie die spätere UI die Kopplung der beiden Werte umsetzt, wird bei der HA-App-Implementierung festgelegt.
 
 ## Artist-Spacing
 
