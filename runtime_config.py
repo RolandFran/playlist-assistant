@@ -6,12 +6,15 @@ create a ``RuntimeConfig`` from its settings and provide it to the engine.
 
 from dataclasses import dataclass
 import argparse
+import re
 
 
 DEFAULT_TODAY_SIZE = 200
 DEFAULT_RARE_WEIGHT = 50
 DEFAULT_ARTIST_GAP = 10
 DEFAULT_HISTORY_POLL_MINUTES = 90
+DEFAULT_TODAY_SCHEDULE_ENABLED = True
+DEFAULT_TODAY_SCHEDULE_TIME = "04:00"
 
 
 class RuntimeConfigError(ValueError):
@@ -31,12 +34,16 @@ class RuntimeConfig:
     rare_weight: int = DEFAULT_RARE_WEIGHT
     artist_gap: int = DEFAULT_ARTIST_GAP
     history_poll_minutes: int = DEFAULT_HISTORY_POLL_MINUTES
+    today_schedule_enabled: bool = DEFAULT_TODAY_SCHEDULE_ENABLED
+    today_schedule_time: str = DEFAULT_TODAY_SCHEDULE_TIME
 
     def __post_init__(self):
         _require_positive_int("today_size", self.today_size)
         _require_weight("rare_weight", self.rare_weight)
         _require_non_negative_int("artist_gap", self.artist_gap)
         _require_positive_int("history_poll_minutes", self.history_poll_minutes)
+        _require_bool("today_schedule_enabled", self.today_schedule_enabled)
+        _require_time("today_schedule_time", self.today_schedule_time)
 
     @property
     def long_weight(self) -> int:
@@ -97,6 +104,8 @@ def runtime_config_from_args(
         rare_weight=values.get("rare_weight", base_config.rare_weight),
         artist_gap=values.get("artist_gap", base_config.artist_gap),
         history_poll_minutes=base_config.history_poll_minutes,
+        today_schedule_enabled=base_config.today_schedule_enabled,
+        today_schedule_time=base_config.today_schedule_time,
     )
 
 
@@ -117,3 +126,13 @@ def _require_weight(name: str, value: int) -> None:
         raise RuntimeConfigError(
             f"{name} muss eine ganze Zahl zwischen 0 und 100 sein."
         )
+
+
+def _require_bool(name: str, value: bool) -> None:
+    if not isinstance(value, bool):
+        raise RuntimeConfigError(f"{name} muss wahr oder falsch sein.")
+
+
+def _require_time(name: str, value: str) -> None:
+    if not isinstance(value, str) or not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value):
+        raise RuntimeConfigError(f"{name} muss im 24-Stunden-Format HH:MM sein.")
