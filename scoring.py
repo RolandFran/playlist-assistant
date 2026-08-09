@@ -5,18 +5,13 @@ import sqlite3
 from datetime import datetime, timezone
 
 from db_state import build_input_state, fingerprint_state
+from runtime_config import RuntimeConfig, get_runtime_config
 
 
 DB_PATH = "playlist_assistant.db"
 OUTPUT_PATH = os.path.join("reports", "scoring_output.txt")
 TODAY_OUTPUT_PATH = os.path.join("reports", "today_output.txt")
 TODAY_JSON_PATH = os.path.join("reports", "today_tracks.json")
-
-TODAY_SIZE = 200
-RARE_WEIGHT = 0.50
-LONG_WEIGHT = 0.50
-ARTIST_MIN_GAP = 10
-
 
 def parse_spotify_time(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -57,8 +52,21 @@ def select_today(candidates, size: int, artist_min_gap: int):
     return selected, relaxed_count
 
 
+def calculate_combined_score(
+    rare_score: float,
+    long_score: float,
+    config: RuntimeConfig,
+) -> float:
+    """Kombiniert die Scores mit den intern normalisierten Gewichten."""
+    return (
+        config.rare_weight_factor * rare_score
+        + config.long_weight_factor * long_score
+    )
+
+
 def main():
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+    config = get_runtime_config()
 
     conn = sqlite3.connect(DB_PATH)
 
@@ -235,9 +243,10 @@ def main():
 
             long_score = max(0.0, min(100.0, long_score))
 
-            combined_score = (
-                RARE_WEIGHT * rare_score
-                + LONG_WEIGHT * long_score
+            combined_score = calculate_combined_score(
+                rare_score,
+                long_score,
+                config,
             )
 
             row["rare_score"] = rare_score
@@ -256,8 +265,8 @@ def main():
 
         today_rows, relaxed_count = select_today(
             candidates,
-            TODAY_SIZE,
-            ARTIST_MIN_GAP,
+            config.today_size,
+            config.artist_min_gap,
         )
 
         output_lines = []
@@ -297,7 +306,7 @@ def main():
         output_lines.append(f"Höchste Wiedergabezahl: {max_play_count}")
         output_lines.append(f"Längste Hörpause:    {max_days_since:.1f} Tage")
         output_lines.append(
-            f"Gewichtung:          Rare {RARE_WEIGHT:.0%} / Long {LONG_WEIGHT:.0%}"
+            f"Gewichtung:          Rare {config.rare_weight} / Long {config.long_weight}"
         )
 
         today_lines = []
@@ -334,11 +343,11 @@ def main():
         today_lines.append("")
         today_lines.append("=" * 120)
         today_lines.append(f"Auswahlgroesse:       {len(today_rows)}")
-        today_lines.append(f"Konfiguriert:         {TODAY_SIZE}")
-        today_lines.append(f"Artist-Min-Gap:       {ARTIST_MIN_GAP}")
+        today_lines.append(f"Konfiguriert:         {config.today_size}")
+        today_lines.append(f"Artist-Min-Gap:       {config.artist_min_gap}")
         today_lines.append(f"Gap-Ausnahmen:        {relaxed_count}")
         today_lines.append(
-            f"Gewichtung:           Rare {RARE_WEIGHT:.0%} / Long {LONG_WEIGHT:.0%}"
+            f"Gewichtung:           Rare {config.rare_weight} / Long {config.long_weight}"
         )
 
         with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
@@ -356,10 +365,10 @@ def main():
             "input_fingerprint": input_fingerprint,
             "input_state": input_state,
             "playlist_size": len(today_rows),
-            "configured_size": TODAY_SIZE,
-            "artist_min_gap": ARTIST_MIN_GAP,
-            "rare_weight": RARE_WEIGHT,
-            "long_weight": LONG_WEIGHT,
+            "configured_size": config.today_size,
+            "artist_min_gap": config.artist_min_gap,
+            "rare_weight": config.rare_weight,
+            "long_weight": config.long_weight,
             "tracks": [
                 {
                     "position": rank,
@@ -390,11 +399,11 @@ def main():
         print(f"Höchste Wiedergabezahl: {max_play_count}")
         print(f"Längste Hörpause:    {max_days_since:.1f} Tage")
         print(
-            f"Gewichtung:          Rare {RARE_WEIGHT:.0%} / "
-            f"Long {LONG_WEIGHT:.0%}"
+            f"Gewichtung:          Rare {config.rare_weight} / "
+            f"Long {config.long_weight}"
         )
         print(f"Today-Auswahl:        {len(today_rows)}")
-        print(f"Artist-Min-Gap:       {ARTIST_MIN_GAP}")
+        print(f"Artist-Min-Gap:       {config.artist_min_gap}")
         print(f"Gap-Ausnahmen:        {relaxed_count}")
         print(f"Input-Fingerprint:    {input_fingerprint[:12]}...")
         print()
