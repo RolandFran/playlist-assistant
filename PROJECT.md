@@ -1,286 +1,307 @@
-# Playlist Assistant – verbindlicher Projektstand
+# Playlist Assistant – Authoritative Project State
 
-## Zweck dieser Datei
+## Purpose of this file
 
-`PROJECT.md` beschreibt den **aktuellen verbindlichen Projektstand** und die derzeit gültige Zielarchitektur.
+`PROJECT.md` describes the **current authoritative project state** and target architecture.
 
-Historische Entscheidungen und Begründungen werden separat in `docs/docs-design-notes.md` als Architecture Decision Log (ADR) geführt. Ältere ADRs können durch spätere ADRs ersetzt sein und sind deshalb nicht automatisch der aktuelle Soll-Zustand.
+Historical decisions and their rationales are maintained separately in `docs/docs-design-notes.md` as an Architecture Decision Log (ADR). Older ADRs may be superseded and therefore do not automatically represent the current target state.
 
-## Ziel
+## Goal
 
-Playlist Assistant erstellt eine dynamische Spotify-Zielplaylist aus definierten Quellplaylists.
+Playlist Assistant creates a dynamic Spotify target playlist from defined source playlists.
 
-Kandidaten stammen ausschließlich aus Spotify-Playlists, deren Beschreibung den Marker `#today-source` enthält.
+Candidates come exclusively from Spotify playlists whose description contains the `#today-source` marker.
 
-Die Today-Auswahl wird anhand eines Scores erzeugt. Die Standardgröße beträgt 200 Titel und soll später über die Home-Assistant-App konfigurierbar sein.
+The Today selection is generated from a score. Its default size is 200 tracks and will later be configurable through the Home Assistant app.
 
-Die von Playlist Assistant verwaltete Spotify-Zielplaylist `Today` ist privat.
+The Spotify target playlist managed by Playlist Assistant, `Today`, is private.
 
-## Zielplattform
+## Target platform
 
-Playlist Assistant soll als **Home-Assistant-App** betrieben werden.
+Playlist Assistant is intended to run as a **Home Assistant app**.
 
-Die App soll Home-Assistant-/Supervisor-Funktionen nutzen, insbesondere:
-- Starten / Stoppen / Neustarten
-- Start mit dem Home-Assistant-System
-- Watchdog
-- App-Updates
-- Seitenleisten-Eintrag / Ingress
-- native Bereiche für Info, Dokumentation, Konfiguration und Protokoll
-- Supervisor-Ressourceninformationen, soweit verfügbar
+The app should use Home Assistant/Supervisor capabilities, including:
 
-Die Playlist-Engine bleibt logisch vom bestehenden Home-Assistant-System getrennt. Bestehende HA-Konfigurationen, Integrationen und Node-RED-Flows sollen für die Grundfunktion nicht verändert werden müssen.
+- start / stop / restart
+- start with the Home Assistant system
+- watchdog
+- app updates
+- sidebar entry / Ingress
+- native areas for information, documentation, configuration, and logs
+- Supervisor resource information when available
 
-## Zentrale Datenbank
+The playlist engine remains logically separate from the existing Home Assistant system. Existing HA configurations, integrations, and Node-RED flows should not need to change for the core function.
 
-Datei: `playlist_assistant.db`
+## Central database
 
-Es gibt genau eine produktive SQLite-Datenbank.
+File: `playlist_assistant.db`
 
-### Tabellen
-- `source` – aktuell gefundene Spotify-Quellplaylists mit `#today-source`
-- `playlist` – aktuelle Tracks dieser Quellplaylists; ein Track kann in mehreren Quellen vorkommen
-- `history` – einzelne Spotify-Wiedergaben aus Extended Streaming History und dem laufenden Collector
-- `sync_state` – technische Checkpoints des Collectors
+There is exactly one production SQLite database.
 
-## Aktueller Datenfluss
+### Tables
 
-1. `collector.py` aktualisiert Spotify Recently Played und schreibt neue Wiedergaben nach `history` sowie Checkpoints nach `sync_state`.
-2. `sync.py` sucht Playlists mit `#today-source` und aktualisiert `source` und `playlist` inkrementell.
-3. `scoring.py` wertet die Kandidaten aus `playlist` gegen `history` aus, berechnet Scores und erzeugt die Today-Auswahl.
-4. `publish.py` prüft die Frische des Scoring-Ergebnisses und veröffentlicht die Auswahl bei Spotify.
-5. `run.py` ist der zentrale CLI-Einstiegspunkt und kann die komplette Today-Pipeline in fester Reihenfolge ausführen: History → Sources → Scoring → Publish.
+- `source` – currently discovered Spotify source playlists with `#today-source`
+- `playlist` – current tracks in those source playlists; a track can occur in multiple sources
+- `history` – individual Spotify plays from Extended Streaming History and the running collector
+- `sync_state` – technical collector checkpoints
 
-Diagnose-/Analysewerkzeuge liegen unter `tools/`, darunter insbesondere `tools/stats.py` und `tools/analyze.py`.
+## Current data flow
 
-Der Import der Spotify Extended Streaming History ist ein lokaler Einrichtungs-/Importvorgang und liegt bewusst außerhalb des Git-Repositories unter `import/`.
+1. `collector.py` updates Spotify Recently Played and writes new plays to `history` and checkpoints to `sync_state`.
+2. `sync.py` finds playlists with `#today-source` and incrementally updates `source` and `playlist`.
+3. `scoring.py` evaluates `playlist` candidates against `history`, calculates scores, and generates the Today selection.
+4. `publish.py` checks the freshness of the scoring result and publishes the selection to Spotify.
+5. `run.py` is the central CLI entry point and can run the complete Today pipeline in a fixed order: History → Sources → Scoring → Publish.
 
-## Spotify-Zugriff
+Diagnostic and analysis tools are located in `tools/`, notably `tools/stats.py` and `tools/analyze.py`.
 
-`client.py` ist die zentrale Spotify-/Spotipy-Grenze für die Fachmodule.
+Importing Spotify Extended Streaming History is a local setup/import operation and intentionally lives outside the Git repository under `import/`.
 
-Die Client-Schicht kapselt insbesondere:
-- Authentifizierung / Token-Nutzung
-- API-Aufrufe
-- Pagination
-- Spotify-Batchgrößen
-- Request-Zählung
-- Fehlerklassifikation
-- Rate-Limit-/Quota-Behandlung
-- Logging
+## Spotify access
 
-Spotify-spezifische API-Limits sind interne Implementierungsdetails und keine normale Benutzerkonfiguration.
+`client.py` is the central Spotify/Spotipy boundary for the domain modules.
 
-## Source-Sync
+The client layer encapsulates:
 
-- Quellplaylists werden über `#today-source` erkannt.
-- `snapshot_id` dient zur Änderungserkennung.
-- Unveränderte Sources werden nicht vollständig neu geladen.
-- Neue oder tatsächlich geänderte Sources werden synchronisiert.
-- Wird `#today-source` entfernt, wird die Source aus der lokalen Datenbasis entfernt.
-- Die Datenbank wird erst geändert, nachdem die für einen konsistenten Sync nötigen Spotify-Daten erfolgreich geladen wurden.
+- authentication / token use
+- API calls
+- pagination
+- Spotify batch sizes
+- request counting
+- error classification
+- rate-limit / quota handling
+- logging
 
-## Kandidaten und Song-Identität
+Spotify-specific API limits are internal implementation details, not normal user configuration.
 
-Kandidaten stammen ausschließlich aus `playlist`.
+## Source sync
 
-Für die Bildung eines logischen Song-Kandidaten wird derzeit verwendet:
-- normalisierter Titel
-- normalisierter Interpret
+- Source playlists are identified by `#today-source`.
+- `snapshot_id` is used to detect changes.
+- Unchanged sources are not fully reloaded.
+- New or genuinely changed sources are synchronized.
+- Removing `#today-source` removes the source from the local data store.
+- The database changes only after the Spotify data required for a consistent sync has been loaded successfully.
 
-Mehrere Playlist-Einträge mit demselben normalisierten Titel + Interpret werden als ein logischer Kandidat behandelt. Eine Spotify-URI bleibt als technische Referenz erhalten, um den ausgewählten Track später veröffentlichen zu können.
+## Candidates and song identity
 
-Normalisierung umfasst derzeit nur:
-- Groß-/Kleinschreibung
-- äußere Leerzeichen
+Candidates come exclusively from `playlist`.
 
-Live-/Remaster-/Acoustic-Zusätze werden nicht entfernt.
+A logical song candidate currently uses:
 
-## Matching gegen die Hörhistorie
+- normalized title
+- normalized artist
 
-Historische Wiedergaben werden in dieser Reihenfolge zugeordnet:
+Multiple playlist entries with the same normalized title and artist are treated as one logical candidate. A Spotify URI remains as a technical reference so that the selected track can be published later.
 
-1. **Primär:** exakte Spotify-`track_uri`
-2. **Fallback:** normalisierter Titel + normalisierter Interpret
+Normalization currently includes only:
 
-Der URI-Match hat Vorrang, weil Spotify-Metadaten zwischen Playlist-API und Extended Streaming History voneinander abweichen können, obwohl dieselbe Spotify-Track-ID gemeint ist.
+- letter case
+- surrounding whitespace
 
-Für Playlist-Kandidaten werden Wiedergaben erst ab `added_at` berücksichtigt, sofern `added_at` vorhanden ist.
+Live/remaster/acoustic suffixes are not removed.
 
-Interne Match-Typen:
+## Matching against listening history
+
+Historical plays are matched in this order:
+
+1. **Primary:** exact Spotify `track_uri`
+2. **Fallback:** normalized title + normalized artist
+
+The URI match takes precedence because Spotify metadata can differ between the Playlist API and Extended Streaming History even when the same Spotify track ID is intended.
+
+For playlist candidates, plays are considered only from `added_at` onward when `added_at` is available.
+
+Internal match types:
+
 - `uri`
 - `title_artist`
 - `none`
 
 ## Scoring
 
-Alle sichtbaren Scores werden auf einer Skala von **0 bis 100** dargestellt.
+All visible scores use a **0 to 100** scale.
 
-### Rare Score
-- logarithmisch über `play_count`
-- 0 Plays → Rare Score 100
-- die höchste aktuelle Wiedergabezahl bildet das obere Vergleichsende
+### Rare score
 
-### Long-not-played Score
-- gehörte Titel: logarithmisch über die Tage seit dem letzten relevanten Play
-- 0-Play-Titel: neutraler Long-Score 50
-- unter gleich bewerteten 0-Play-Titeln dient das Alter seit `added_at` als Tie-Breaker; ältere Einträge werden zuerst berücksichtigt
-- nie gehörte Titel bleiben dadurch hoch priorisiert, verdrängen aber nicht automatisch die gesamte Today-Auswahl
+- logarithmic over `play_count`
+- 0 plays → rare score 100
+- the highest current play count is the upper comparison bound
 
-### Combined Score
+### Long-not-played score
 
-Standardgewichtung:
+- listened tracks: logarithmic over days since the last relevant play
+- 0-play tracks: neutral long score of 50
+- for equally scored 0-play tracks, age since `added_at` is the tie-breaker; older entries are considered first
+- never-played tracks therefore remain high priority, but do not automatically displace the entire Today selection
+
+### Combined score
+
+Default weighting:
+
 - Rare: 50
 - Long: 50
 
-Die **Benutzer-/Konfigurationsskala für Gewichtungen ist 0 bis 100**.
+`rare_weight` is the only configurable weight and uses a **0 to 100** user/configuration scale. `long_weight` is always derived as `100 - rare_weight`.
 
-Für die mathematische Berechnung dürfen die Werte intern auf Faktoren im Bereich 0.0 bis 1.0 normalisiert werden. Diese interne Darstellung ist kein Benutzerwert.
+For mathematical calculation, values may be normalized internally to factors from 0.0 to 1.0. This internal representation is not a user value.
 
-Rare und Long sollen zusammen 100 ergeben. Damit sind auch die Extremstellungen `100 / 0` (nur Rare) und `0 / 100` (nur Long) möglich. Wie die spätere UI die Kopplung der beiden Werte umsetzt, wird bei der HA-App-Implementierung festgelegt.
+The complete Rare range maps constructively to Long: `0` Rare produces `100` Long, and `100` Rare produces `0` Long. The two weights therefore always total 100 without an independently configurable Long input.
 
-## Artist-Spacing
+## Artist spacing
 
-Standard: `artist_min_gap = 10`
+Default: `artist_min_gap = 10`
 
-Bei der Auswahl soll derselbe normalisierte Künstler möglichst nicht innerhalb der letzten 10 bereits ausgewählten Positionen erneut vorkommen.
+During selection, the same normalized artist should ideally not recur within the previous 10 selected positions.
 
-Artist-Spacing verändert nicht den Score, sondern die Reihenfolge bzw. Auswahl.
+Artist spacing does not change the score; it changes the ordering or selection.
 
-Wenn der konfigurierte Abstand mit dem verbleibenden Kandidatenpool nicht eingehalten werden kann, darf der Gap ausnahmsweise gelockert werden, damit die konfigurierte Zielgröße erreicht wird.
+If the configured spacing cannot be maintained with the remaining candidate pool, it may exceptionally be relaxed so the configured target size can be reached.
 
-## Aktuelle lokale Defaults
+## Current local defaults
 
-Die aktuell vorgesehenen Benutzerwerte sind:
+`RuntimeConfig` is the central configuration layer. Its defaults are:
 
 ```text
-TODAY_SIZE = 200
-RARE_WEIGHT = 50
-LONG_WEIGHT = 50
-ARTIST_MIN_GAP = 10
+today_size = 200
+rare_weight = 50
+long_weight = 50 (derived)
+artist_min_gap = 10
 ```
 
-Im aktuellen Code liegen die Gewichtungsfaktoren noch als `0.50 / 0.50` in `scoring.py`. Das ist ein Übergangsstand und soll durch eine zentrale Konfigurationsschicht ersetzt werden.
+`long_weight` is derived as `100 - rare_weight`; it is not independently configurable. `RuntimeConfig` also exposes the normalized factors used by the scoring formula.
 
-## History-Synchronisierung
+## History synchronization
 
-`collector.py` führt jeweils einen einzelnen Sync-Lauf aus.
+`collector.py` runs one synchronization pass at a time.
 
-Für die spätere Home-Assistant-App ist derzeit vorgesehen:
-- automatisches History-Polling standardmäßig alle **90 Minuten**
-- vorläufig konfigurierbarer Bereich: 15–180 Minuten
-- zusätzlicher History-Sync unmittelbar vor der Today-Erstellung
-- manueller History-Sync für Diagnose, Test und Einrichtung
+The later Home Assistant app is currently intended to provide:
 
-Eine mögliche History-Lücke soll erkannt und später im UI sichtbar gemacht werden.
+- automatic history polling every **90 minutes** by default
+- preliminary configurable range: 15–180 minutes
+- an additional history sync immediately before Today generation
+- a manual history sync for diagnostics, testing, and setup
 
-## Publish und Stale-Result-Sicherung
+A possible history gap should be detected and made visible in the UI later.
 
-`scoring.py` speichert in `reports/today_tracks.json` einen Fingerabdruck des verwendeten DB-Eingangszustands.
+## Publishing and stale-result protection
 
-`publish.py` berechnet vor Dry-Run bzw. Write den aktuellen Fingerabdruck erneut.
+`scoring.py` stores a fingerprint of the database input state used in `reports/today_tracks.json`.
 
-Wenn sich Sources oder History seit dem Scoring verändert haben, wird Publish abgebrochen. Dadurch kann eine veraltete Today-Auswahl nicht versehentlich veröffentlicht werden.
+`publish.py` recalculates the current fingerprint before a dry run or write.
 
-Die Zielplaylist wird privat erstellt bzw. auf privat gesetzt.
+If sources or history change since scoring, publishing is aborted. This prevents an outdated Today selection from being published accidentally.
 
-## Rate Limits und Degraded Mode
+The target playlist is created as private or set to private.
 
-Spotify-Fehler werden zentral über `client.py` behandelt.
+## Rate limits and degraded mode
 
-Insbesondere:
-- HTTP 429 wird kontrolliert behandelt.
-- `QUOTA_EXCEEDED` wird von einem normalen kurzfristigen Rate Limit unterschieden.
-- `Retry-After` wird ausgewertet.
-- kurze sinnvolle Wartezeiten dürfen kontrolliert wiederholt werden.
-- lange Sperren dürfen den Prozess nicht stundenlang blockieren.
-- bei langen Sperren wird der jeweilige Spotify-Job kontrolliert beendet.
-- inkonsistente DB-Teiländerungen sollen vermieden werden.
+Spotify errors are handled centrally by `client.py`.
 
-Für die HA-App ist ein sichtbarer Degraded Mode vorgesehen. Lokale DB-Auswertung und bereits vorhandene Ergebnisse sollen dabei weiterhin nutzbar bleiben, während Spotify-abhängige Aktionen deaktiviert oder als nicht verfügbar markiert werden.
+In particular:
 
-## Konfiguration in Home Assistant
+- HTTP 429 is handled in a controlled manner.
+- `QUOTA_EXCEEDED` is distinguished from a normal short-term rate limit.
+- `Retry-After` is evaluated.
+- short, reasonable wait periods may be retried in a controlled manner.
+- long lockouts must not block a process for hours.
+- a long lockout ends the relevant Spotify job in a controlled manner.
+- inconsistent partial database changes should be avoided.
 
-Normale Benutzerkonfiguration soll mindestens umfassen:
-- Today-Größe / `today_size`
-- Rare-Gewichtung
-- Long-Gewichtung
-- Artist-Min-Gap
-- History-Sync-Intervall
-- spätere Scheduling-/Playlist-Optionen
+The HA app is intended to show a visible degraded mode. Local database evaluation and existing results should remain usable while Spotify-dependent actions are disabled or shown as unavailable.
 
-Die Python-Engine soll ihre Laufzeitwerte über eine zentrale Konfigurationsschicht beziehen.
+## Home Assistant configuration
 
-Heute liefert diese Schicht lokale Defaults; später liefert die Home-Assistant-App die konfigurierten Werte.
+Normal user configuration should include at least:
 
-Noch **nicht verbindlich entschieden** ist, ob einzelne Werte technisch über HA-Entities, App-Konfiguration, interne App-API oder eine Kombination bereitgestellt werden.
+- Today size / `today_size`
+- rare weight
+- long weight
+- artist minimum gap
+- history sync interval
+- later scheduling/playlist options
 
-## UI-Ziel
+The Python engine should obtain its runtime values from a central configuration layer.
 
-Die Home-Assistant-Oberfläche soll später mindestens bieten:
-- verständliche Einstellmöglichkeiten für die relevanten Parameter
-- Anzeige des Spotify-/Degraded-Status
-- manuelle Aktionen wie History-Sync bzw. Today-Erstellung
-- die erzeugte Today-Playlist als gut lesbare Tabelle
-- Filter- und Sortiermöglichkeiten für die Playlist-Tabelle
-- Developer-/Diagnoseinformationen getrennt von normalen Nutzeroptionen
+Today this layer provides local defaults; later the Home Assistant app will provide configured values.
+
+It is **not yet decided** whether individual values will technically be provided by HA entities, app configuration, an internal app API, or a combination.
+
+## UI goal
+
+The Home Assistant interface should later provide at least:
+
+- understandable controls for relevant parameters
+- Spotify/degraded status
+- manual actions such as history sync and Today generation
+- the generated Today playlist as a readable table
+- filtering and sorting for the playlist table
+- developer/diagnostic information separated from normal user options
 
 ## Reports
 
-Aktuelle Entwicklungs-/Kontrollausgaben:
-- `reports/scoring_output.txt` – vollständige Kandidatenliste mit Score, Rare, Long, Plays und Tagen
-- `reports/today_output.txt` – aktuell ausgewählte Today-Titel in der durch Artist-Spacing erzeugten Reihenfolge
-- `reports/today_tracks.json` – strukturierte Today-Daten für Publish und spätere Weiterverarbeitung
+Current development/verification outputs:
 
-Verständliche Diagnosebegriffe:
+- `reports/scoring_output.txt` – complete candidate list with score, Rare, Long, plays, and days
+- `reports/today_output.txt` – currently selected Today tracks in the order produced by artist spacing
+- `reports/today_tracks.json` – structured Today data for publishing and later processing
+
+Plain-language diagnostic terms:
+
 - `Höchste Wiedergabezahl`
 - `Längste Hörpause`
 
-Die Textreports sind Entwicklungs-/Kontrollausgaben. Langfristig ist die Home-Assistant-Oberfläche die primäre Benutzeroberfläche.
+The German labels above are runtime output and intentionally remain unchanged. Text reports are development/verification output; the Home Assistant interface is the long-term primary UI.
 
-## Dateiverantwortung
+## File responsibilities
 
-- `client.py` – zentrale Spotify-/Spotipy-Grenze
-- `collector.py` – einzelner Recently-Played-Sync-Lauf
-- `sync.py` – Source-Playlist- und Kandidaten-Synchronisierung
-- `scoring.py` – Matching, Scoring und Today-Auswahl
-- `publish.py` – Frischeprüfung und Spotify-Publish
-- `run.py` – zentraler CLI-Einstiegspunkt / Today-Pipeline
-- `db_state.py` – DB-Eingangszustand und Fingerprint für Stale-Result-Sicherung
-- `tools/` – Diagnose-, Analyse- und Migrationswerkzeuge
-- `docs/docs-design-notes.md` – Architecture Decision Log / Entscheidungsverlauf
+- `client.py` – central Spotify/Spotipy boundary
+- `collector.py` – one Recently Played synchronization pass
+- `sync.py` – source playlist and candidate synchronization
+- `scoring.py` – matching, scoring, and Today selection
+- `publish.py` – freshness check and Spotify publishing
+- `run.py` – central CLI entry point / Today pipeline
+- `db_state.py` – database input state and fingerprint for stale-result protection
+- `tools/` – diagnostic, analysis, and migration tools
+- `docs/docs-design-notes.md` – Architecture Decision Log / decision history
 
-## Verbindliche Namensregeln
+## Mandatory naming rules
 
-Nicht mehr verwenden:
+Do not use:
+
 - `spotify_history.db`
 - `source_playlists`
 - `playlist_tracks`
 - `plays`
 - `history.source`
 
-Stattdessen:
+Use instead:
+
 - `playlist_assistant.db`
 - `source`
 - `playlist`
 - `history`
 - `history.data_source`
 
-## Noch offene Architekturpunkte
+## Open architecture items
 
-- genaue Retry-Schwellen für kurzfristige vs. lange 429-Sperren
-- persistenter App-Status für Spotify-Sperren / Retry-Zeit
-- genaue Scheduling-Logik der Today-Erstellung
-- genaue HA-Ingress-/Dashboard-Struktur
-- Developer-Diagnoseansicht und Statussensoren
-- finale Spotify-Client-Dateistruktur (`client.py` vs. Paket `spotify/`)
-- automatische Tests und Mocking-Strategie
-- technische Bereitstellung der App-Konfigurationswerte an die Python-Engine
+- exact retry thresholds for short versus long 429 lockouts
+- persistent app status for Spotify lockouts / retry time
+- exact Today-generation scheduling logic
+- exact HA Ingress/dashboard structure
+- developer diagnostic view and status sensors
+- final Spotify client file structure (`client.py` versus `spotify/` package)
+- automated tests and mocking strategy
+- technical delivery of app configuration values to the Python engine
 
-## Arbeitsweise für Repository-Änderungen
+## Repository change workflow
 
-- Planung, Architektur und Review erfolgen primär im normalen Chat.
-- Codex/Work wird gezielt für klar abgegrenzte Repository-/Implementierungsarbeit eingesetzt.
-- Git ist die verbindliche technische Referenz zwischen Chat und Work.
-- Größere Änderungen sollen auf einem eigenen Branch bzw. als Pull Request erfolgen.
-- Hermes ist für dieses Projekt derzeit kein notwendiger Zwischenschritt und soll nicht ohne konkreten Mehrwert zusätzlichen Work-/Codex-Verbrauch erzeugen.
+- Planning, architecture, and review happen primarily in the normal ChatGPT chat.
+- Codex/Work is used selectively for clearly scoped repository and implementation work.
+- Git is the authoritative technical reference between chat and Work.
+- Larger changes should be made on a dedicated branch and reviewed through a pull request.
+- Hermes is not currently a necessary intermediate step for this project and should not consume additional Work/Codex capacity without a concrete benefit.
+
+## Repository language convention
+
+Code, comments, docstrings, the README, PROJECT documentation, ADRs, issues, pull request titles, and pull request descriptions are written in English going forward. Runtime and terminal output are outside this convention until explicitly changed.

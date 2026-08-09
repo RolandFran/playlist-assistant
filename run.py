@@ -88,16 +88,16 @@ def run_publish(write=False):
 
 def run_today(write=False, force_full_sources=False, config=None):
     """
-    Komplette Today-Pipeline.
+    Complete Today pipeline.
 
-    Reihenfolge ist absichtlich fest:
-      1. History aktualisieren
-      2. Sources synchronisieren
-      3. Scoring neu berechnen
+    The order is deliberately fixed:
+      1. Update history
+      2. Synchronize sources
+      3. Recalculate scoring
       4. Publish
 
-    Dadurch kann publish.py nicht versehentlich eine Auswahl auf Basis
-    eines veralteten History-/Source-Stands veröffentlichen.
+    This prevents publish.py from accidentally publishing a selection based on
+    outdated history or source state.
     """
     print()
     print("# Playlist Assistant - Today Pipeline")
@@ -197,7 +197,7 @@ def build_parser():
 
 
 def runtime_config_to_cli_args(config):
-    """Reicht nur ausdrücklich gesetzte Werte an den Scoring-Prozess weiter."""
+    """Pass only explicitly set values to the scoring process."""
     if config is None:
         return []
 
