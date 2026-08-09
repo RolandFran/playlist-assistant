@@ -106,6 +106,32 @@ class ApplicationStorage:
                 ),
             )
 
+    def get_target_playlist(self) -> tuple[str, str | None]:
+        """Return the configured target name and its persisted Spotify ID."""
+        with self._connection() as conn:
+            self._ensure_schema(conn)
+            values = dict(conn.execute(
+                "SELECT setting_name, setting_value FROM application_setting "
+                "WHERE setting_name IN ('target_playlist_name', 'target_playlist_id')"
+            ))
+        return values.get("target_playlist_name", "Today"), values.get("target_playlist_id")
+
+    def save_target_playlist(self, name: str, playlist_id: str | None = None) -> None:
+        """Persist target identity; a name update never discards its Spotify ID."""
+        name = name.strip()
+        if not name:
+            raise ValueError("target_playlist_name must not be blank.")
+        values = [("target_playlist_name", name)]
+        if playlist_id is not None:
+            values.append(("target_playlist_id", playlist_id))
+        with self._connection() as conn:
+            self._ensure_schema(conn)
+            conn.executemany(
+                "INSERT INTO application_setting (setting_name, setting_value) VALUES (?, ?) "
+                "ON CONFLICT(setting_name) DO UPDATE SET setting_value = excluded.setting_value",
+                values,
+            )
+
     def get_scheduler_state(self) -> SchedulerState:
         """Load scheduler attempts without considering manual job status."""
         with self._connection() as conn:

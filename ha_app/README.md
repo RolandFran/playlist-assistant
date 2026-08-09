@@ -5,6 +5,20 @@ It starts one small supervised Python service after Home Assistant has started
 (`startup: application`). The service invokes the existing `SchedulerPolicy`
 once per minute; it does not contain another scheduler or Spotify pipeline.
 
+## Ingress control panel
+
+Home Assistant Ingress provides the authenticated daily control panel. It
+shows Spotify/last-job/scheduled status, current Today data, and the normal
+persisted settings. The page uses the Home Assistant browser language when it
+is German and otherwise uses English. It exposes no host port or general LAN
+API; the internal listener accepts only the Supervisor Ingress proxy.
+
+The panel can collect history, sync sources, calculate a local Today result,
+or publish Today. Spotify-dependent buttons explain why they are unavailable
+when authorization is missing. Changing the target playlist name keeps its
+persisted Spotify ID and real publishing renames that same playlist instead
+of creating another one.
+
 ## Install for local testing
 
 Do not copy these files into an existing configuration unless you deliberately
@@ -55,6 +69,6 @@ LAN API and no port is published by this package.
 
 ## Deferred work
 
-This foundation intentionally defers the Ingress UI, entities, services,
-custom cards, browser Spotify authorization/re-authorization, backup/restore,
-and any changes to existing Home Assistant or Node-RED configuration.
+This foundation intentionally defers entities, services, custom cards, browser
+Spotify authorization/re-authorization, backup/restore, and any changes to
+existing Home Assistant or Node-RED configuration.
