@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-PROJECT_DIR = Path(__file__).resolve().parents[1] if Path(__file__).resolve().parent.name == "tools" else Path(__file__).resolve().parent
+PROJECT_DIR = Path(__file__).resolve().parents[2]
 DB_PATH = PROJECT_DIR / "playlist_assistant.db"
 TODAY_JSON = PROJECT_DIR / "reports" / "today_tracks.json"
 

@@ -53,7 +53,7 @@ There is exactly one production SQLite database.
 4. `publish.py` checks the freshness of the scoring result and publishes the selection to Spotify.
 5. `run.py` is the central CLI entry point and can run the complete Today pipeline in a fixed order: History → Sources → Scoring → Publish.
 
-Diagnostic and analysis tools are located in `tools/`, notably `tools/stats.py` and `tools/analyze.py`.
+Diagnostic and analysis tools are located in `tools/diagnostics/`, notably `tools/diagnostics/stats.py` and `tools/diagnostics/analyze.py`. See `tools/README.md` for the complete categorized tool reference.
 
 `history_import.py` imports Spotify Extended Streaming History exports into the same `history` table for setup, recovery, and reinstall scenarios. It is tracked production code, independent of Home Assistant, and returns a structured result for future UI use. Raw export files remain outside Git under the local `import/` directory.
 
@@ -269,7 +269,7 @@ The German labels above are runtime output and intentionally remain unchanged. T
 - `publish.py` – freshness check and Spotify publishing
 - `run.py` – central CLI entry point / Today pipeline
 - `db_state.py` – database input state and fingerprint for stale-result protection
-- `tools/` – diagnostic, analysis, and migration tools
+- `tools/` – categorized diagnostic, maintenance, and verification tools; see `tools/README.md`
 - `docs/docs-design-notes.md` – Architecture Decision Log / decision history
 
 ## Mandatory naming rules
