@@ -314,3 +314,26 @@ The following items are not final and will be completed later:
 - `history_import.py` remains usable with its explicit `--db` option.
 - This decision creates no second production database and adds no Home
   Assistant imports, scheduler behavior, or packaging work.
+
+## ADR-028 – Persisted Home-Assistant-independent scheduler policy
+**Status:** implemented
+
+Supersedes the scheduling portions of ADR-017 and ADR-026.
+
+- `RuntimeConfig` persists `today_schedule_enabled` (default `true`) and
+  `today_schedule_time` (default local `04:00`, strict 24-hour `HH:MM`).
+  `history_poll_minutes` remains persisted with its 90-minute default.
+- `scheduler.py` is a finite, explicitly invoked policy. It creates no daemon,
+  background loop, host service, Home Assistant feature, or second database.
+- Scheduler-owned attempt state is persisted in the existing SQLite database
+  separately from finite job status. Manual CLI jobs therefore do not count as
+  scheduled attempts or affect scheduled cadence.
+- The policy uses an injectable timezone-aware local clock. It runs at most one
+  History slot per interval and one Today slot per local date. An overdue slot
+  is caught up once after restart.
+- A scheduled Today invokes the existing Today pipeline with `write=True`.
+  The manual CLI remains unchanged: `today` is dry-run unless `--write` is
+  explicitly supplied.
+- Attempts are recorded before execution. Failed scheduled History runs wait
+  until the next normal interval; failed scheduled Today runs wait for the next
+  daily slot. No extra retry policy is introduced.

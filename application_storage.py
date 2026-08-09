@@ -38,6 +38,14 @@ class JobStatus:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class SchedulerState:
+    """Persistent scheduler-owned attempt state, separate from job status."""
+
+    last_history_attempt_at: Optional[str]
+    last_today_attempt_date: Optional[str]
+
+
 class ApplicationStorage:
     """Read and write application-owned data in the production SQLite file."""
 
@@ -48,18 +56,34 @@ class ApplicationStorage:
         """Return persisted settings, falling back to ``RuntimeConfig`` defaults."""
         with self._connection() as conn:
             self._ensure_schema(conn)
-            values = {
-                row[0]: int(row[1])
+            raw_values = {
+                row[0]: row[1]
                 for row in conn.execute(
                     """
                     SELECT setting_name, setting_value FROM application_setting
                     WHERE setting_name IN (
                         'today_size', 'rare_weight', 'artist_gap',
-                        'history_poll_minutes'
+                        'history_poll_minutes', 'today_schedule_enabled',
+                        'today_schedule_time'
                     )
                     """
                 )
             }
+        values = {
+            "today_size": int(raw_values["today_size"])
+            if "today_size" in raw_values else None,
+            "rare_weight": int(raw_values["rare_weight"])
+            if "rare_weight" in raw_values else None,
+            "artist_gap": int(raw_values["artist_gap"])
+            if "artist_gap" in raw_values else None,
+            "history_poll_minutes": int(raw_values["history_poll_minutes"])
+            if "history_poll_minutes" in raw_values else None,
+            "today_schedule_enabled": _deserialize_bool(raw_values["today_schedule_enabled"])
+            if "today_schedule_enabled" in raw_values else None,
+            "today_schedule_time": str(raw_values["today_schedule_time"])
+            if "today_schedule_time" in raw_values else None,
+        }
+        values = {name: value for name, value in values.items() if value is not None}
         return RuntimeConfig(**values)
 
     def save_runtime_config(self, config: RuntimeConfig) -> None:
@@ -77,7 +101,46 @@ class ApplicationStorage:
                     ("rare_weight", config.rare_weight),
                     ("artist_gap", config.artist_gap),
                     ("history_poll_minutes", config.history_poll_minutes),
+                    ("today_schedule_enabled", int(config.today_schedule_enabled)),
+                    ("today_schedule_time", config.today_schedule_time),
                 ),
+            )
+
+    def get_scheduler_state(self) -> SchedulerState:
+        """Load scheduler attempts without considering manual job status."""
+        with self._connection() as conn:
+            self._ensure_schema(conn)
+            rows = dict(conn.execute(
+                "SELECT state_name, state_value FROM application_scheduler_state"
+            ))
+        return SchedulerState(
+            last_history_attempt_at=rows.get("last_history_attempt_at"),
+            last_today_attempt_date=rows.get("last_today_attempt_date"),
+        )
+
+    def record_scheduler_attempts(
+        self,
+        *,
+        history_attempt_at: datetime | None = None,
+        today_attempt_date: str | None = None,
+    ) -> None:
+        """Persist scheduler attempts before their finite jobs are invoked."""
+        values = []
+        if history_attempt_at is not None:
+            values.append(("last_history_attempt_at", _serialize_datetime(history_attempt_at)))
+        if today_attempt_date is not None:
+            values.append(("last_today_attempt_date", today_attempt_date))
+        if not values:
+            return
+        with self._connection() as conn:
+            self._ensure_schema(conn)
+            conn.executemany(
+                """
+                INSERT INTO application_scheduler_state (state_name, state_value)
+                VALUES (?, ?)
+                ON CONFLICT(state_name) DO UPDATE SET state_value = excluded.state_value
+                """,
+                values,
             )
 
     def record_job_result(self, result) -> JobStatus:
@@ -192,6 +255,14 @@ class ApplicationStorage:
         )
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS application_scheduler_state (
+                state_name TEXT PRIMARY KEY,
+                state_value TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS application_job_status (
                 job_name TEXT PRIMARY KEY,
                 started_at TEXT NOT NULL,
@@ -209,3 +280,11 @@ class ApplicationStorage:
 
 def _serialize_datetime(value: datetime) -> str:
     return value.isoformat()
+
+
+def _deserialize_bool(value) -> bool | object:
+    if value in (0, "0"):
+        return False
+    if value in (1, "1"):
+        return True
+    return value

@@ -21,6 +21,8 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(config.long_weight, 50)
         self.assertEqual(config.artist_gap, 10)
         self.assertEqual(config.history_poll_minutes, 90)
+        self.assertTrue(config.today_schedule_enabled)
+        self.assertEqual(config.today_schedule_time, "04:00")
         self.assertEqual(config.rare_weight_factor, 0.5)
         self.assertEqual(config.long_weight_factor, 0.5)
 
@@ -47,6 +49,10 @@ class RuntimeConfigTests(unittest.TestCase):
             {"rare_weight": -1},
             {"rare_weight": 101},
             {"today_size": True},
+            {"today_schedule_enabled": 1},
+            {"today_schedule_time": "4:00"},
+            {"today_schedule_time": "24:00"},
+            {"today_schedule_time": "04:60"},
         )
 
         for values in invalid_configs:

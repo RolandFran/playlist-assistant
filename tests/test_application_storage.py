@@ -23,6 +23,8 @@ class ApplicationStorageTests(unittest.TestCase):
 
         self.assertEqual(config, RuntimeConfig())
         self.assertEqual(config.history_poll_minutes, 90)
+        self.assertTrue(config.today_schedule_enabled)
+        self.assertEqual(config.today_schedule_time, "04:00")
 
     def test_valid_settings_round_trip_without_storing_long_weight(self):
         self.storage.save_runtime_config(
@@ -31,6 +33,8 @@ class ApplicationStorageTests(unittest.TestCase):
                 rare_weight=70,
                 artist_gap=4,
                 history_poll_minutes=45,
+                today_schedule_enabled=False,
+                today_schedule_time="06:30",
             )
         )
 
@@ -38,6 +42,8 @@ class ApplicationStorageTests(unittest.TestCase):
         self.assertEqual(config.rare_weight, 70)
         self.assertEqual(config.long_weight, 30)
         self.assertEqual(config.history_poll_minutes, 45)
+        self.assertFalse(config.today_schedule_enabled)
+        self.assertEqual(config.today_schedule_time, "06:30")
         conn = sqlite3.connect(self.database)
         try:
             names = {
@@ -51,6 +57,19 @@ class ApplicationStorageTests(unittest.TestCase):
         self.assertNotIn("long_weight", names)
         self.assertIn("artist_gap", names)
         self.assertNotIn("artist_min_gap", names)
+
+    def test_scheduler_attempt_state_round_trips_separately_from_job_status(self):
+        attempted_at = datetime(2026, 8, 9, 4, 0, tzinfo=timezone.utc)
+        self.storage.record_scheduler_attempts(
+            history_attempt_at=attempted_at,
+            today_attempt_date="2026-08-09",
+        )
+
+        state = self.storage.get_scheduler_state()
+
+        self.assertEqual(state.last_history_attempt_at, attempted_at.isoformat())
+        self.assertEqual(state.last_today_attempt_date, "2026-08-09")
+        self.assertIsNone(self.storage.get_job_status("history"))
 
     def test_invalid_settings_use_runtime_config_validation(self):
         with self.assertRaises(RuntimeConfigError):

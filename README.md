@@ -96,9 +96,17 @@ Today size:        200
 Rare weight:        50
 Long weight:        50
 Artist minimum gap: 10
+History polling:    90 minutes
+Today scheduling:   enabled at local 04:00
 ```
 
 Only the rare weight is configurable. The long weight is always calculated as its complement, so they add up to 100.
+
+## Scheduling policy
+
+The engine includes a persistent, Home-Assistant-independent scheduler policy for a future host to invoke. It is not a background daemon or service. History is due every configured interval (90 minutes by default); Today is enabled by default and due once per day at local `04:00`. The Today time uses strict 24-hour `HH:MM` validation.
+
+Scheduled runs persist their own attempt state. After a restart, an overdue History run or missed Today slot is caught up once. Failed scheduled History runs wait for the next configured interval; failed Today runs wait for the next daily slot. A scheduled Today run uses the normal pipeline and writes to Spotify. This does not change the manual CLI: `python run.py today` remains a dry run and `python run.py today --write` remains an explicit manual publish.
 
 ## Data flow
 
@@ -125,6 +133,7 @@ For `today`, `run.py` executes these steps in the order History → Sources → 
 - `publish.py` – freshness check and Spotify publishing
 - `db_state.py` – state fingerprint for stale-result protection
 - `application_paths.py` – production database and report path contract
+- `scheduler.py` – persistent, explicitly invoked scheduling policy
 - `PROJECT.md` – current authoritative project state
 - `docs/docs-design-notes.md` – Architecture Decision Log
 

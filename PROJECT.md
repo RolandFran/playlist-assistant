@@ -170,6 +170,8 @@ rare_weight = 50
 long_weight = 50 (derived)
 artist_gap = 10
 history_poll_minutes = 90
+today_schedule_enabled = true
+today_schedule_time = 04:00 (local time, 24-hour HH:MM)
 ```
 
 Application settings are persisted in the existing `playlist_assistant.db` through `application_storage.py`. `long_weight` is derived as `100 - rare_weight`; it is not independently configurable or stored. `RuntimeConfig` also exposes the normalized factors used by the scoring formula.
@@ -194,7 +196,9 @@ automatically imported.
 
 `collector.py` runs one synchronization pass at a time.
 
-`runtime.py` provides scheduler-ready orchestration for explicit `history` and `today` jobs. Each invocation records success or failure, start and end timestamps, duration, and the failed pipeline step when applicable. Completed results are persisted as serializable last-job status in the existing SQLite database, including error type/message and the last successful completion time. It rejects overlapping runs of the same job within one process. It does not run a daemon or schedule jobs itself.
+`runtime.py` provides scheduler-ready orchestration for explicit `history` and `today` jobs. Each invocation records success or failure, start and end timestamps, duration, and the failed pipeline step when applicable. Completed results are persisted as serializable last-job status in the existing SQLite database, including error type/message and the last successful completion time. It rejects overlapping runs of the same job within one process.
+
+`scheduler.py` provides a Home-Assistant-independent, explicitly invoked scheduler policy. It does not run a daemon, permanent process loop, or host service. Its persisted scheduler state is separate from manual job status, so only scheduled attempts affect cadence decisions. Default policy: History is due every 90 minutes; Today is enabled and due once per local day at 04:00. An overdue job is caught up once after restart. Failed scheduled History and Today attempts wait for their next normal interval or daily slot rather than retrying tightly. Scheduled Today calls the existing Today pipeline with `write=True`; manual CLI semantics remain unchanged.
 
 The configured target cadence for future scheduling is:
 
@@ -202,7 +206,7 @@ The configured target cadence for future scheduling is:
 - an additional history sync immediately before Today generation
 - a manual history sync for diagnostics, testing, and setup
 
-The daily Today execution time remains a later app-layer configuration decision; no arbitrary clock time is hard-coded.
+Today scheduling is persisted independently of Home Assistant: enabled by default at local 04:00, with time validated as 24-hour `HH:MM`.
 
 A possible history gap should be detected and made visible in the UI later.
 
@@ -240,7 +244,7 @@ Normal user configuration should include at least:
 - rare weight / `rare_weight` (Long is derived, not independently configured)
 - artist minimum gap
 - history sync interval
-- later scheduling/playlist options
+- Today scheduling enabled/time and later playlist options
 
 The Python engine should obtain its runtime values from a central configuration layer.
 
@@ -278,7 +282,8 @@ The German labels above are runtime output and intentionally remain unchanged. T
 
 - `client.py` – central Spotify/Spotipy boundary
 - `runtime.py` – scheduler-ready execution of explicit history and Today jobs
-- `application_storage.py` – SQLite boundary for application settings and serializable job status
+- `scheduler.py` – persistent, explicitly invoked scheduling policy
+- `application_storage.py` – SQLite boundary for application settings, job status, and scheduler attempt state
 - `application_paths.py` – persistent data-path contract for local and hosted execution
 - `collector.py` – one Recently Played synchronization pass
 - `history_import.py` – transactional Extended Streaming History import
@@ -312,7 +317,6 @@ Use instead:
 
 - exact retry thresholds for short versus long 429 lockouts
 - persistent app status for Spotify lockouts / retry time
-- exact Today-generation scheduling logic
 - exact HA Ingress/dashboard structure
 - developer diagnostic view and status sensors
 - final Spotify client file structure (`client.py` versus `spotify/` package)
