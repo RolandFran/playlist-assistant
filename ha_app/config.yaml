@@ -1,7 +1,7 @@
 name: Playlist Assistant
 slug: playlist_assistant
 version: "0.1.0"
-description: Safely run Playlist Assistant's existing scheduler on Home Assistant.
+description: Creates a private Today playlist from #today-source Spotify playlists, prioritizing least-played and least-recently-played tracks.
 url: https://github.com/RolandFran/playlist-assistant
 startup: application
 init: false
