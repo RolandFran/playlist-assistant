@@ -43,7 +43,7 @@ python run.py publish
 Scoring values can be provided explicitly for each run. Values that are not supplied retain their defaults:
 
 ```powershell
-python run.py score --today-size 100 --rare-weight 70 --artist-min-gap 5
+python run.py score --today-size 100 --rare-weight 70 --artist-gap 5
 ```
 
 The same options are available for `python run.py today` and are passed to the scoring step.

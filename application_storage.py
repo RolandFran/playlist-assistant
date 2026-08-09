@@ -53,7 +53,7 @@ class ApplicationStorage:
                     """
                     SELECT setting_name, setting_value FROM application_setting
                     WHERE setting_name IN (
-                        'today_size', 'rare_weight', 'artist_min_gap',
+                        'today_size', 'rare_weight', 'artist_gap',
                         'history_poll_minutes'
                     )
                     """
@@ -74,7 +74,7 @@ class ApplicationStorage:
                 (
                     ("today_size", config.today_size),
                     ("rare_weight", config.rare_weight),
-                    ("artist_min_gap", config.artist_min_gap),
+                    ("artist_gap", config.artist_gap),
                     ("history_poll_minutes", config.history_poll_minutes),
                 ),
             )

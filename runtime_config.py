@@ -10,7 +10,7 @@ import argparse
 
 DEFAULT_TODAY_SIZE = 200
 DEFAULT_RARE_WEIGHT = 50
-DEFAULT_ARTIST_MIN_GAP = 10
+DEFAULT_ARTIST_GAP = 10
 DEFAULT_HISTORY_POLL_MINUTES = 90
 
 
@@ -29,13 +29,13 @@ class RuntimeConfig:
 
     today_size: int = DEFAULT_TODAY_SIZE
     rare_weight: int = DEFAULT_RARE_WEIGHT
-    artist_min_gap: int = DEFAULT_ARTIST_MIN_GAP
+    artist_gap: int = DEFAULT_ARTIST_GAP
     history_poll_minutes: int = DEFAULT_HISTORY_POLL_MINUTES
 
     def __post_init__(self):
         _require_positive_int("today_size", self.today_size)
         _require_weight("rare_weight", self.rare_weight)
-        _require_non_negative_int("artist_min_gap", self.artist_min_gap)
+        _require_non_negative_int("artist_gap", self.artist_gap)
         _require_positive_int("history_poll_minutes", self.history_poll_minutes)
 
     @property
@@ -69,7 +69,13 @@ def add_runtime_config_arguments(parser: argparse.ArgumentParser) -> None:
     group = parser.add_argument_group("Laufzeitkonfiguration für das Scoring")
     group.add_argument("--today-size", type=int, metavar="ANZAHL")
     group.add_argument("--rare-weight", type=int, metavar="0-100")
-    group.add_argument("--artist-min-gap", type=int, metavar="ANZAHL")
+    group.add_argument(
+        "--artist-gap",
+        "--artist-min-gap",
+        dest="artist_gap",
+        type=int,
+        metavar="ANZAHL",
+    )
 
 
 def runtime_config_from_args(
@@ -82,14 +88,14 @@ def runtime_config_from_args(
         for name, value in (
             ("today_size", getattr(args, "today_size", None)),
             ("rare_weight", getattr(args, "rare_weight", None)),
-            ("artist_min_gap", getattr(args, "artist_min_gap", None)),
+            ("artist_gap", getattr(args, "artist_gap", None)),
         )
         if value is not None
     }
     return RuntimeConfig(
         today_size=values.get("today_size", base_config.today_size),
         rare_weight=values.get("rare_weight", base_config.rare_weight),
-        artist_min_gap=values.get("artist_min_gap", base_config.artist_min_gap),
+        artist_gap=values.get("artist_gap", base_config.artist_gap),
         history_poll_minutes=base_config.history_poll_minutes,
     )
 

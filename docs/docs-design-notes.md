@@ -291,7 +291,7 @@ The following items are not final and will be completed later:
 **Status:** implemented
 
 - The existing `playlist_assistant.db` is the single persistence boundary for application settings and runtime status; no Home Assistant dependency or second production database is introduced.
-- `application_setting` stores only `today_size`, `rare_weight`, `artist_min_gap`, and `history_poll_minutes`. `long_weight` is not stored and remains derived as `100 - rare_weight`.
+- `application_setting` stores only `today_size`, `rare_weight`, `artist_gap`, and `history_poll_minutes`. `long_weight` is not stored and remains derived as `100 - rare_weight`.
 - `RuntimeConfig` remains the central owner of defaults and validation. Storage loads it from persisted values and falls back to its defaults for a fresh database.
 - `application_job_status` stores a serializable last completed status for the finite `history` and `today` jobs, including failure details and the last successful completion timestamp.
 - The in-memory per-process overlap guard remains authoritative for currently running jobs. This decision adds neither a scheduler nor a distributed lock.

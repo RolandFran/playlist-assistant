@@ -19,7 +19,7 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(config.today_size, 200)
         self.assertEqual(config.rare_weight, 50)
         self.assertEqual(config.long_weight, 50)
-        self.assertEqual(config.artist_min_gap, 10)
+        self.assertEqual(config.artist_gap, 10)
         self.assertEqual(config.history_poll_minutes, 90)
         self.assertEqual(config.rare_weight_factor, 0.5)
         self.assertEqual(config.long_weight_factor, 0.5)
@@ -43,7 +43,7 @@ class RuntimeConfigTests(unittest.TestCase):
     def test_invalid_values_are_rejected(self):
         invalid_configs = (
             {"today_size": 0},
-            {"artist_min_gap": -1},
+            {"artist_gap": -1},
             {"rare_weight": -1},
             {"rare_weight": 101},
             {"today_size": True},
@@ -61,11 +61,34 @@ class RuntimeConfigTests(unittest.TestCase):
         config = runtime_config_from_args(parser.parse_args([
             "--today-size", "25",
             "--rare-weight", "70",
-            "--artist-min-gap", "4",
+            "--artist-gap", "4",
         ]))
 
         self.assertEqual(config, RuntimeConfig(25, 70, 4))
         self.assertEqual(config.long_weight, 30)
+
+    def test_legacy_artist_min_gap_cli_alias_maps_to_artist_gap(self):
+        parser = argparse.ArgumentParser()
+        add_runtime_config_arguments(parser)
+
+        config = runtime_config_from_args(parser.parse_args([
+            "--artist-min-gap", "4",
+        ]))
+
+        self.assertEqual(config.artist_gap, 4)
+
+    def test_artist_gap_cli_spellings_produce_the_same_configuration(self):
+        parser = argparse.ArgumentParser()
+        add_runtime_config_arguments(parser)
+
+        preferred = runtime_config_from_args(
+            parser.parse_args(["--artist-gap", "4"])
+        )
+        legacy = runtime_config_from_args(
+            parser.parse_args(["--artist-min-gap", "4"])
+        )
+
+        self.assertEqual(preferred.artist_gap, legacy.artist_gap)
 
     def test_invalid_external_cli_values_are_rejected(self):
         parser = argparse.ArgumentParser()

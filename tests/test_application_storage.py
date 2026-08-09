@@ -29,7 +29,7 @@ class ApplicationStorageTests(unittest.TestCase):
             RuntimeConfig(
                 today_size=125,
                 rare_weight=70,
-                artist_min_gap=4,
+                artist_gap=4,
                 history_poll_minutes=45,
             )
         )
@@ -49,6 +49,8 @@ class ApplicationStorageTests(unittest.TestCase):
         finally:
             conn.close()
         self.assertNotIn("long_weight", names)
+        self.assertIn("artist_gap", names)
+        self.assertNotIn("artist_min_gap", names)
 
     def test_invalid_settings_use_runtime_config_validation(self):
         with self.assertRaises(RuntimeConfigError):

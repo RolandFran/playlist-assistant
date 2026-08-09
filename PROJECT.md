@@ -152,7 +152,7 @@ The complete Rare range maps constructively to Long: `0` Rare produces `100` Lon
 
 ## Artist spacing
 
-Default: `artist_min_gap = 10`
+Default: `artist_gap = 10`
 
 During selection, the same normalized artist should ideally not recur within the previous 10 selected positions.
 
@@ -168,7 +168,7 @@ If the configured spacing cannot be maintained with the remaining candidate pool
 today_size = 200
 rare_weight = 50
 long_weight = 50 (derived)
-artist_min_gap = 10
+artist_gap = 10
 history_poll_minutes = 90
 ```
 
