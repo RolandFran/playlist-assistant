@@ -10,8 +10,7 @@ from datetime import datetime, timezone
 from threading import Lock
 from typing import Callable, Optional
 
-
-DEFAULT_HISTORY_POLL_MINUTES = 90
+from runtime_config import DEFAULT_HISTORY_POLL_MINUTES
 
 
 @dataclass(frozen=True)
@@ -38,12 +37,14 @@ class RuntimeOrchestrator:
         score_runner: Callable[..., None],
         publish_runner: Callable[..., None],
         now: Callable[[], datetime] | None = None,
+        status_store=None,
     ):
         self._history_runner = history_runner
         self._sources_runner = sources_runner
         self._score_runner = score_runner
         self._publish_runner = publish_runner
         self._now = now or (lambda: datetime.now(timezone.utc))
+        self._status_store = status_store
         self._active_jobs: set[str] = set()
         self._active_jobs_lock = Lock()
 
@@ -78,13 +79,13 @@ class RuntimeOrchestrator:
         with self._active_jobs_lock:
             if job_name in self._active_jobs:
                 error = RuntimeError(f"Job {job_name!r} is already running.")
-                return self._result(
+                return self._complete(self._result(
                     job_name,
                     False,
                     started_at,
                     failed_step=job_name,
                     error=error,
-                )
+                ))
 
             self._active_jobs.add(job_name)
 
@@ -93,18 +94,29 @@ class RuntimeOrchestrator:
                 try:
                     step()
                 except Exception as error:
-                    return self._result(
+                    return self._complete(self._result(
                         job_name,
                         False,
                         started_at,
                         failed_step=step_name,
                         error=error,
-                    )
+                    ))
 
-            return self._result(job_name, True, started_at)
+            return self._complete(self._result(job_name, True, started_at))
         finally:
             with self._active_jobs_lock:
                 self._active_jobs.remove(job_name)
+
+    def _complete(self, result: JobResult) -> JobResult:
+        """Optionally persist the result without changing job execution behavior."""
+        if self._status_store is not None:
+            try:
+                self._status_store.record_job_result(result)
+            except Exception:
+                # Status is observational; a storage failure must not change
+                # the finite job's existing result or overlap behavior.
+                pass
+        return result
 
     def _result(
         self,

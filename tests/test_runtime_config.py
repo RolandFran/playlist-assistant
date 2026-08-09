@@ -20,6 +20,7 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(config.rare_weight, 50)
         self.assertEqual(config.long_weight, 50)
         self.assertEqual(config.artist_min_gap, 10)
+        self.assertEqual(config.history_poll_minutes, 90)
         self.assertEqual(config.rare_weight_factor, 0.5)
         self.assertEqual(config.long_weight_factor, 0.5)
 

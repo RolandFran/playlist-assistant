@@ -11,6 +11,7 @@ import argparse
 DEFAULT_TODAY_SIZE = 200
 DEFAULT_RARE_WEIGHT = 50
 DEFAULT_ARTIST_MIN_GAP = 10
+DEFAULT_HISTORY_POLL_MINUTES = 90
 
 
 class RuntimeConfigError(ValueError):
@@ -29,11 +30,13 @@ class RuntimeConfig:
     today_size: int = DEFAULT_TODAY_SIZE
     rare_weight: int = DEFAULT_RARE_WEIGHT
     artist_min_gap: int = DEFAULT_ARTIST_MIN_GAP
+    history_poll_minutes: int = DEFAULT_HISTORY_POLL_MINUTES
 
     def __post_init__(self):
         _require_positive_int("today_size", self.today_size)
         _require_weight("rare_weight", self.rare_weight)
         _require_non_negative_int("artist_min_gap", self.artist_min_gap)
+        _require_positive_int("history_poll_minutes", self.history_poll_minutes)
 
     @property
     def long_weight(self) -> int:
@@ -49,9 +52,11 @@ class RuntimeConfig:
         return self.long_weight / 100.0
 
 
-def get_runtime_config() -> RuntimeConfig:
-    """Return local defaults until a later app provides values."""
-    return RuntimeConfig()
+def get_runtime_config(db_path=None) -> RuntimeConfig:
+    """Load persisted application settings, or central defaults on first run."""
+    from application_storage import ApplicationStorage
+
+    return ApplicationStorage(db_path).load_runtime_config()
 
 
 def add_runtime_config_arguments(parser: argparse.ArgumentParser) -> None:
@@ -67,8 +72,11 @@ def add_runtime_config_arguments(parser: argparse.ArgumentParser) -> None:
     group.add_argument("--artist-min-gap", type=int, metavar="ANZAHL")
 
 
-def runtime_config_from_args(args: argparse.Namespace) -> RuntimeConfig:
-    """Create a validated configuration from optional CLI values."""
+def runtime_config_from_args(
+    args: argparse.Namespace, base_config: RuntimeConfig | None = None
+) -> RuntimeConfig:
+    """Apply optional CLI overrides to persisted or central configuration."""
+    base_config = base_config or get_runtime_config()
     values = {
         name: value
         for name, value in (
@@ -78,7 +86,12 @@ def runtime_config_from_args(args: argparse.Namespace) -> RuntimeConfig:
         )
         if value is not None
     }
-    return RuntimeConfig(**values)
+    return RuntimeConfig(
+        today_size=values.get("today_size", base_config.today_size),
+        rare_weight=values.get("rare_weight", base_config.rare_weight),
+        artist_min_gap=values.get("artist_min_gap", base_config.artist_min_gap),
+        history_poll_minutes=base_config.history_poll_minutes,
+    )
 
 
 def _require_positive_int(name: str, value: int) -> None:

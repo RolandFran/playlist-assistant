@@ -108,7 +108,7 @@ This decision sets the target platform, not the internal HA interface. Whether a
 Normal user configuration:
 
 - Today size
-- Rare/Long weight
+- Rare weight (Long is always derived)
 - artist minimum gap
 - later scheduling/playlist options
 
@@ -286,3 +286,13 @@ The following items are not final and will be completed later:
 - The existing `(played_at, track_id)` history primary key makes re-importing the same export idempotent.
 - Results include file, record, insert, duplicate, invalid-record, timing, and error status suitable for a future UI.
 - Raw Spotify export files remain local input data under `import/` and are not versioned.
+
+## ADR-026 – Persist application settings and finite-job status in SQLite
+**Status:** implemented
+
+- The existing `playlist_assistant.db` is the single persistence boundary for application settings and runtime status; no Home Assistant dependency or second production database is introduced.
+- `application_setting` stores only `today_size`, `rare_weight`, `artist_min_gap`, and `history_poll_minutes`. `long_weight` is not stored and remains derived as `100 - rare_weight`.
+- `RuntimeConfig` remains the central owner of defaults and validation. Storage loads it from persisted values and falls back to its defaults for a fresh database.
+- `application_job_status` stores a serializable last completed status for the finite `history` and `today` jobs, including failure details and the last successful completion timestamp.
+- The in-memory per-process overlap guard remains authoritative for currently running jobs. This decision adds neither a scheduler nor a distributed lock.
+- No daily Today execution time is persisted; that scheduling decision remains open.
