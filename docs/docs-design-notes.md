@@ -276,3 +276,13 @@ The following items are not final and will be completed later:
 - Same-job overlap is rejected within one process; no distributed lock is introduced.
 - The default future history cadence is exposed as 90 minutes, but no daemon, OS scheduler, Home Assistant dependency, or player-state check is added.
 - Spotify API and rate-limit handling remain in the existing client and domain layers.
+
+## ADR-025 – Extended Streaming History import is a production capability
+**Status:** implemented
+
+- `history_import.py` is tracked application code and can be called by the local CLI or a future Home Assistant app.
+- It imports supported Spotify Extended Streaming History music-play records into the existing `history` table without Spotify network access.
+- A requested batch is transactional: malformed or unsupported file structures fail without committing partial imported plays.
+- The existing `(played_at, track_id)` history primary key makes re-importing the same export idempotent.
+- Results include file, record, insert, duplicate, invalid-record, timing, and error status suitable for a future UI.
+- Raw Spotify export files remain local input data under `import/` and are not versioned.

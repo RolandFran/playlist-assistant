@@ -55,7 +55,9 @@ There is exactly one production SQLite database.
 
 Diagnostic and analysis tools are located in `tools/`, notably `tools/stats.py` and `tools/analyze.py`.
 
-Importing Spotify Extended Streaming History is a local setup/import operation and intentionally lives outside the Git repository under `import/`.
+`history_import.py` imports Spotify Extended Streaming History exports into the same `history` table for setup, recovery, and reinstall scenarios. It is tracked production code, independent of Home Assistant, and returns a structured result for future UI use. Raw export files remain outside Git under the local `import/` directory.
+
+Imports validate supported music-play records, are idempotent through the existing history primary key, and write each requested file batch transactionally. A failed batch does not commit partial imported plays. The normal Recently Played collector then continues against this same database state.
 
 ## Spotify access
 
@@ -261,6 +263,7 @@ The German labels above are runtime output and intentionally remain unchanged. T
 - `client.py` – central Spotify/Spotipy boundary
 - `runtime.py` – scheduler-ready execution of explicit history and Today jobs
 - `collector.py` – one Recently Played synchronization pass
+- `history_import.py` – transactional Extended Streaming History import
 - `sync.py` – source playlist and candidate synchronization
 - `scoring.py` – matching, scoring, and Today selection
 - `publish.py` – freshness check and Spotify publishing

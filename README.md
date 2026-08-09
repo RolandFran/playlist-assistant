@@ -11,6 +11,7 @@ The current implementation runs locally as a Python application. The target plat
 Currently included:
 
 - Spotify Recently Played collector
+- Extended Streaming History import for setup and recovery
 - incremental source sync using `snapshot_id`
 - SQLite database: `playlist_assistant.db`
 - URI-first matching against listening history
@@ -59,6 +60,16 @@ Spotify write access is deliberately not automatic. For an actual publish:
 python run.py today --write
 ```
 
+## Extended Streaming History import
+
+Spotify export files can be imported into the production history database for initial setup, recovery, or reinstall scenarios:
+
+```powershell
+python history_import.py import\Streaming_History_Audio_2025.json
+```
+
+The importer accepts one or more JSON export files, validates them, and writes the whole batch transactionally. Re-importing the same export is safe: existing plays are skipped. The input files remain local and unversioned under `import/`; the importer itself is tracked production code and can later be reused by the Home Assistant app.
+
 ## Default values
 
 ```text
@@ -89,6 +100,7 @@ For `today`, `run.py` executes these steps in the order History → Sources → 
 - `run.py` – central CLI entry point
 - `client.py` – central Spotify/Spotipy boundary
 - `collector.py` – Recently Played sync
+- `history_import.py` – Extended Streaming History import
 - `sync.py` – source and playlist synchronization
 - `scoring.py` – matching, scoring, and Today selection
 - `publish.py` – freshness check and Spotify publishing
