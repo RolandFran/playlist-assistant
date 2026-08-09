@@ -1,285 +1,269 @@
 # Playlist Assistant – Design Notes / Architecture Decision Log
 
-Status: laufende Planungsphase  
-Zweck: Entscheidungen kompakt sammeln und die Gründe hinter Architekturentscheidungen nachvollziehbar halten.
+Status: ongoing planning phase
+Purpose: Record decisions concisely and preserve the rationale for architectural decisions.
 
-`PROJECT.md` beschreibt den aktuell verbindlichen Projektstand. Dieses Decision Log dokumentiert Entscheidungen und darf deshalb auch historische bzw. später ersetzte ADRs enthalten.
+`PROJECT.md` describes the current authoritative project state. This decision log documents decisions and may therefore include historical or later-superseded ADRs.
 
-## ADR-001 – Spotify-Zugriff zentral kapseln
-**Status:** beschlossen
+## ADR-001 – Centralize Spotify access behind a client layer
+**Status:** accepted
 
-- Spotipy bleibt vorerst als Spotify-Bibliothek erhalten.
-- Spotipy wird nicht direkt aus `sync.py`, `collector.py`, `publish.py` oder anderen Fachmodulen verwendet.
-- Sämtliche Spotify-Zugriffe laufen über eine zentrale Client-Schicht (`client.py` bzw. später ggf. Paket `spotify/`).
-- Die Client-Schicht kapselt:
-  - Authentifizierung / Token-Nutzung
-  - API-Limits und Batchgrößen
-  - Pagination
-  - Request-Zählung
-  - Fehlerklassifikation
-  - Rate-Limit-/Quota-Behandlung
-  - strukturiertes Logging
-- Ein späterer Austausch von Spotipy gegen direkte HTTP-Aufrufe soll möglich sein, ohne die Fachmodule umzubauen.
-- Ein Spotipy-Ersatz wird nur bei einem konkreten technischen Grund erwogen.
+- Spotipy remains the Spotify library for now.
+- Spotipy is not used directly from `sync.py`, `collector.py`, `publish.py`, or other domain modules.
+- All Spotify access goes through a central client layer (`client.py`, or possibly a `spotify/` package later).
+- The client layer encapsulates authentication/token use, API limits and batch sizes, pagination, request counting, error classification, rate-limit/quota handling, and structured logging.
+- Replacing Spotipy with direct HTTP calls should be possible without rebuilding the domain modules.
+- A Spotipy replacement is considered only for a concrete technical reason.
 
-## ADR-002 – Spotify-API-Limits sind interne Implementierungsdetails
-**Status:** beschlossen
+## ADR-002 – Spotify API limits are internal implementation details
+**Status:** accepted
 
-- API-Limits und Batchgrößen werden zentral im Code gepflegt.
-- Sie werden nicht als normale Benutzerkonfiguration gespeichert.
-- Eine spätere Developer-/Diagnose-Sektion darf die aktuell verwendeten Werte read-only anzeigen.
-- Ziel: Spotify-Änderungen sollen durch ein App-Update korrigiert werden können, ohne dass alte Benutzerwerte einen Fix überschreiben.
-- Aktuell relevante Größen werden vor Implementierung jeweils gegen die Spotify-Dokumentation geprüft.
+- API limits and batch sizes are maintained centrally in code.
+- They are not stored as normal user configuration.
+- A future developer/diagnostic section may display current values read-only.
+- Spotify changes should be correctable through an app update without old user values overriding a fix.
+- Relevant values are checked against Spotify documentation before implementation.
 
-## ADR-003 – Pagination zentralisieren
-**Status:** beschlossen
+## ADR-003 – Centralize pagination
+**Status:** accepted
 
-- Fachmodule fordern vollständige logische Datenmengen an und kennen die API-Paginierung nicht.
-- Beispiel: `sync.py` fordert die Tracks einer Source an; die Client-Schicht entscheidet, wie viele Seiten dafür nötig sind.
-- Das Ende der Pagination wird anhand der API-Antwort (`next`, Cursor, Checkpoint etc.) erkannt.
-- Spotify-spezifische Page-Größen dürfen nicht über mehrere Module verteilt werden.
+- Domain modules request complete logical data sets and do not know API pagination.
+- For example, `sync.py` requests a source's tracks; the client layer decides how many pages are required.
+- Pagination ends based on the API response (`next`, cursor, checkpoint, and so on).
+- Spotify-specific page sizes must not be distributed across modules.
 
-## ADR-004 – Source-Sync bleibt inkrementell
-**Status:** beschlossen
+## ADR-004 – Keep source sync incremental
+**Status:** accepted
 
-- Quellplaylists werden über `#today-source` erkannt.
-- Unveränderte Sources werden nicht vollständig neu geladen.
-- `snapshot_id` wird zur Änderungserkennung verwendet.
-- Neue oder tatsächlich geänderte Sources werden geladen.
-- Das Entfernen von `#today-source` entfernt die Source sauber aus der lokalen Datenbasis.
-- SQLite wird erst geändert, nachdem alle für den jeweiligen konsistenten Sync benötigten Spotify-Daten erfolgreich geladen wurden.
+- Source playlists are identified by `#today-source`.
+- Unchanged sources are not fully reloaded.
+- `snapshot_id` detects changes.
+- New or genuinely changed sources are loaded.
+- Removing `#today-source` cleanly removes the source from local data.
+- SQLite changes only after the Spotify data required for the relevant consistent sync is loaded successfully.
 
-## ADR-005 – History-Collection bedarfsgesteuert
-**Status:** ersetzt durch ADR-017
+## ADR-005 – Collect history on demand
+**Status:** superseded by ADR-017
 
-- Ursprüngliche Entscheidung: kein permanenter 30-/60-Minuten-Collector als Default.
-- Recently Played sollte unmittelbar vor der Today-Erstellung aktualisiert werden.
-- Zusätzlich war ein manueller History-Sync für Diagnose, Test und Einrichtung vorgesehen.
-- Die Pagination endet, sobald der bereits bekannte History-Checkpoint erreicht bzw. die zeitliche Lücke geschlossen ist.
-- Die spätere Entscheidung ADR-017 ergänzt einen automatischen 90-Minuten-Default und ersetzt damit den ersten Punkt dieser ADR.
+- Original decision: no permanent 30/60-minute collector by default.
+- Recently Played should be updated immediately before Today generation.
+- A manual history sync was also planned for diagnostics, testing, and setup.
+- Pagination ends when the known history checkpoint is reached or the time gap is closed.
+- ADR-017 adds an automatic 90-minute default and supersedes the first point of this ADR.
 
-## ADR-006 – Rate Limit und Development-Quota unterscheiden
-**Status:** beschlossen
+## ADR-006 – Distinguish rate limits from development quota
+**Status:** accepted
 
-- HTTP 429 wird zentral behandelt.
-- `QUOTA_EXCEEDED` wird von einem normalen kurzfristigen Rate Limit unterschieden.
-- `Retry-After` wird ausgewertet und respektiert.
-- Kleine, sinnvolle Wartezeiten dürfen kontrolliert automatisch wiederholt werden.
-- Sehr lange Wartezeiten dürfen keinen Prozess stundenlang blockieren.
-- Bei einer langen Sperre wird der aktuelle Spotify-Job kontrolliert beendet.
-- Die App selbst bleibt verfügbar.
-- Keine inkonsistenten Teiländerungen an der DB.
+- HTTP 429 is handled centrally.
+- `QUOTA_EXCEEDED` is distinguished from a normal short-term rate limit.
+- `Retry-After` is evaluated and respected.
+- Small, reasonable wait times may be retried automatically in a controlled manner.
+- Very long waits must not block a process for hours.
+- A long lockout ends the current Spotify job in a controlled manner.
+- The app itself remains available.
+- No inconsistent partial database changes.
 
-## ADR-007 – Degraded Mode muss im UI sichtbar sein
-**Status:** beschlossen
+## ADR-007 – Degraded mode must be visible in the UI
+**Status:** accepted
 
-Wenn Spotify temporär nicht verfügbar ist:
+When Spotify is temporarily unavailable:
 
-- lokale DB-Auswertung bleibt nutzbar,
-- vorhandene Scores/Playlist-Daten bleiben sichtbar,
-- Spotify-abhängige Aktionen werden deaktiviert bzw. ausgegraut,
-- Grund der Sperre wird angezeigt,
-- sofern bekannt wird der frühestmögliche neue Versuch angezeigt,
-- das Protokoll enthält die technischen Details.
+- local database evaluation remains usable,
+- existing scores and playlist data remain visible,
+- Spotify-dependent actions are disabled or greyed out,
+- the reason for the lockout is shown,
+- the earliest possible next attempt is shown when known, and
+- the log contains technical details.
 
-Beispielstatus:
+Example status values:
+
 - `Spotify: OK`
 - `Spotify: Rate limited`
 - `Spotify: Quota erschöpft`
 - `Spotify: verfügbar ab …`
 
-## ADR-008 – Logging und Request-Zählung
-**Status:** beschlossen
+The last two values are planned runtime UI strings and intentionally remain unchanged.
 
-- Strukturierte Logs gehen auf stdout/stderr und sollen später im nativen Home-Assistant-App-Tab **Protokoll** erscheinen.
-- Normale erfolgreiche Abläufe werden kompakt geloggt.
-- Detaillierte Einzelrequest-Logs sind über Developer-/Diagnoseoptionen zuschaltbar.
-- Spotify-Requests werden zentral gezählt.
-- Ein Job-Log soll mindestens enthalten:
-  - Jobtyp
-  - Start/Ende
-  - Anzahl Spotify-Requests
-  - Anzahl gelesener/geschriebener Elemente
-  - Erfolg/Fehler
-  - bei 429: Reason und Retry-After
-  - ob die DB verändert wurde
+## ADR-008 – Logging and request counting
+**Status:** accepted
 
-## ADR-009 – Home-Assistant-App als Zielplattform
-**Status:** beschlossen
+- Structured logs go to stdout/stderr and should later appear in the native Home Assistant app **log** tab.
+- Normal successful flows are logged compactly.
+- Detailed individual-request logs can be enabled through developer/diagnostic options.
+- Spotify requests are counted centrally.
+- A job log should include at least job type, start/end, Spotify request count, number of read/written items, success/failure, reason and Retry-After for 429, and whether the database changed.
 
-Playlist Assistant soll als Home-Assistant-App laufen.
+## ADR-009 – Home Assistant app as target platform
+**Status:** accepted
 
-Supervisor-/App-Funktionen sollen genutzt werden statt sie selbst nachzubauen:
-- Starten / Stoppen / Neustarten
-- Start bei Home-Assistant-Systemstart
-- Watchdog
-- automatische Updates
-- Seitenleisten-Eintrag / Ingress
-- native Tabs für Info, Dokumentation, Konfiguration und Protokoll
-- Container-Ressourcenanzeige (CPU/RAM), soweit Supervisor sie bereitstellt
-- App-/Container-Hostname, soweit Supervisor ihn bereitstellt
+Playlist Assistant is intended to run as a Home Assistant app.
 
-Diese Entscheidung legt die Zielplattform fest, aber noch nicht die interne HA-Schnittstelle. Ob zusätzliche Entities, Services oder eine Custom Integration benötigt werden, bleibt eine separate Architekturentscheidung.
+Use Supervisor/app capabilities rather than rebuilding them: start/stop/restart, start at Home Assistant system startup, watchdog, automatic updates, sidebar entry/Ingress, native tabs for information, documentation, configuration, and logs, container resource display (CPU/RAM) where provided by Supervisor, and app/container hostname where provided.
 
-## ADR-010 – Konfigurationsseite: Nutzeroptionen vs. Developer-Diagnose
-**Status:** beschlossen
+This decision sets the target platform, not the internal HA interface. Whether additional entities, services, or a custom integration are needed remains a separate architecture decision.
 
-Normale Benutzerkonfiguration:
-- Today-Größe
-- Rare-/Long-Gewichtung
-- Artist-Min-Gap
-- spätere Scheduling-/Playlist-Optionen
+## ADR-010 – Configuration page: user options versus developer diagnostics
+**Status:** accepted
 
-Developer-/Diagnosebereich:
-- Log-Level
-- detailliertes Spotify-Request-Logging
-- API-Diagnose
-- Dry Run
-- interne Spotify-Limits read-only
+Normal user configuration:
 
-Nicht als Benutzeroption:
-- Spotify Page Size
-- Spotify Write Batch Size
-- interne Retry-Konstanten, sofern kein echter Nutzerfall dafür existiert
+- Today size
+- Rare/Long weight
+- artist minimum gap
+- later scheduling/playlist options
 
-## ADR-011 – Zusatz-Caching nur bei echtem Nutzen
-**Status:** beschlossen
+Developer/diagnostic area:
 
-- Keine zusätzliche ETag-/Cache-Schicht nur aus theoretischer Optimierung.
-- Sie wird nur ergänzt, wenn sie nachweislich Requests reduziert oder Code vereinfacht.
-- Bestehende Mechanismen wie `snapshot_id` und History-Checkpoint haben Vorrang.
+- log level
+- detailed Spotify request logging
+- API diagnostics
+- dry run
+- internal Spotify limits, read-only
 
-## ADR-012 – Dokumentationsstrategie
-**Status:** beschlossen
+Not user options:
 
-- `PROJECT.md` ist die aktuelle verbindliche Spezifikation des Projekts.
-- Dieses Decision Log dokumentiert Entscheidungen und deren Entwicklung; ältere ADRs werden bei Änderungen als ersetzt markiert statt still überschrieben.
-- Während der laufenden Planungsphase wird dieses Decision Log fortgeführt.
-- Später vorgesehen:
-  - `README.md`
-  - `AGENTS.md`
-  - `docs/architecture.md`
-  - `docs/spotify-api.md`
-  - `docs/database.md`
-  - `docs/development.md`
-- `AGENTS.md` bleibt kurz und verbindlich; Detailwissen liegt in `docs/`.
+- Spotify page size
+- Spotify write batch size
+- internal retry constants unless there is a real user case
 
-## ADR-013 – Arbeitsaufteilung Chat / Hermes / Codex
-**Status:** beschlossen, präzisiert
+## ADR-011 – Add caching only for tangible benefit
+**Status:** accepted
 
-- Planung, Architektur, Entscheidungen und Review finden primär im normalen ChatGPT-Chat statt.
-- Codex/Work wird gezielt für klar abgegrenzte Repository- und Implementierungsarbeit eingesetzt.
-- GitHub dient als Übergabepunkt zwischen Chat, Work/Codex und lokalem Projektstand.
-- Änderungen erfolgen grundsätzlich in einem eigenen Branch und werden vor dem Merge per Pull Request geprüft.
-- Hermes ist vorerst kein Standard-Orchestrator für dieses Projekt.
-- Hermes soll insbesondere kein Codex-/Work-Kontingent für reine Projektorganisation, Kanban-Pflege oder unnötige Worker-Orchestrierung verbrauchen.
-- Falls Hermes später wieder eingesetzt wird, muss vor Worker-Erstellung zuerst ein Worker-Plan mit Aufgabe, Modell und Reasoning-Level vorgelegt und freigegeben werden.
+- Do not add an ETag/cache layer merely for theoretical optimization.
+- Add it only when it demonstrably reduces requests or simplifies code.
+- Existing mechanisms such as `snapshot_id` and the history checkpoint take precedence.
 
-## Offene Punkte
+## ADR-012 – Documentation strategy
+**Status:** accepted
 
-Diese Punkte sind noch nicht final entschieden und werden später ergänzt:
+- `PROJECT.md` is the project's current authoritative specification.
+- This decision log records decisions and their evolution; older ADRs are marked as superseded when changed rather than silently overwritten.
+- Continue this decision log during the planning phase.
+- Later documentation: `README.md`, `AGENTS.md`, `docs/architecture.md`, `docs/spotify-api.md`, `docs/database.md`, and `docs/development.md`.
+- `AGENTS.md` remains short and authoritative; detailed knowledge belongs in `docs/`.
 
-- genaue Retry-Schwellen für kurzfristige vs. lange 429-Sperren
-- persistenter App-Status für Spotify-Sperren / Retry-Zeit
-- genaue Scheduling-Logik der Today-Erstellung
-- genaue HA-Ingress-/Dashboard-Struktur
-- Developer-Diagnoseansicht und Statussensoren
-- finale Dateistruktur (`client.py` vs. Paket `spotify/`)
-- automatische Tests und Mocking-Strategie
+## ADR-013 – Division of work: Chat / Hermes / Codex
+**Status:** accepted, refined
 
-## ADR-014 – Erster Spotify-Client-Refactor
-**Status:** umgesetzt als Teststand
+- Planning, architecture, decisions, and review happen primarily in the standard ChatGPT chat.
+- Codex/Work is used selectively for clearly scoped repository and implementation work.
+- GitHub is the handoff point between chat, Work/Codex, and the local project state.
+- Changes are made on a dedicated branch and reviewed through a pull request before merge.
+- Hermes is not currently a standard orchestrator for this project.
+- Hermes should not consume Codex/Work capacity for project administration, Kanban maintenance, or unnecessary worker orchestration.
+- If Hermes is used later, a worker plan with task, model, and reasoning level must be presented and approved before creating a worker.
 
-- `client.py` ist jetzt die einzige Spotify-/Spotipy-Grenze für `collector.py`, `sync.py` und `publish.py`.
-- Spotipy-interne Status-Retries sind deaktiviert (`retries=0`, `status_retries=0`).
-- Kurze 429-Sperren werden in der Client-Schicht kontrolliert behandelt.
-- Lange 429-Sperren führen zu einem kontrollierten Fehler statt stundenlangem Sleep.
-- `QUOTA_EXCEEDED` besitzt eine eigene Exception.
-- 5xx-Fehler erhalten wenige kurze Retries.
-- Request-Zählung erfolgt zentral.
-- Playlist- und Recently-Played-Pagination liegen zentral in `client.py`.
-- `publish.py` verwendet kein separates `requests` mehr.
-- Alle drei Jobs loggen strukturierte Start-/End-/Fehlerereignisse.
-- Live-Test gegen Spotify steht noch aus.
+## Open items
 
-## ADR-015 – Spotify-Playlist-Metadaten zentral normalisieren
-**Status:** umgesetzt
+The following items are not final and will be completed later:
 
-- Spotify-/Spotipy-Feldnamen wie `items` vs. das ältere `tracks` werden nur in `client.py` behandelt.
-- `client.py` stellt Fachmodulen dafür das interne Feld `item_total` bereit.
-- `sync.py` kennt die Spotify-spezifischen Feldnamen nicht mehr.
-- Dadurch führen API-/Spotipy-Feldänderungen nicht direkt zu unnötigen Full-Syncs.
+- exact retry thresholds for short versus long 429 lockouts
+- persistent app status for Spotify lockouts / retry time
+- exact Today-generation scheduling logic
+- exact HA Ingress/dashboard structure
+- developer diagnostic view and status sensors
+- final file structure (`client.py` versus `spotify/` package)
+- automated tests and mocking strategy
 
-## ADR-016 – Recently-Played-Gaps rückwärts schließen
-**Status:** umgesetzt als Teststand
+## ADR-014 – Initial Spotify client refactor
+**Status:** implemented as a tested state
 
-- Ein `after=<checkpoint>`-Request liefert maximal 50 Plays und genügt bei größeren Lücken nicht.
-- Nach der ersten Seite wird bei Bedarf mit `before=<ältester Zeitpunkt der Seite>` rückwärts paginiert.
-- `after` und `before` werden nie gleichzeitig gesendet.
-- Es werden nur Plays nach dem gewünschten Checkpoint übernommen.
-- Bereits gespeicherte Plays bleiben durch den DB-Primärschlüssel/`INSERT OR IGNORE` unverändert.
-- `collector.py --recover-after <ISO-Zeitpunkt>` erlaubt einen gezielten Backfill einer bereits entstandenen Lücke.
-- Ein Recovery-Lauf darf den gespeicherten `last_played_at`-Checkpoint niemals rückwärts verschieben.
+- `client.py` is now the only Spotify/Spotipy boundary for `collector.py`, `sync.py`, and `publish.py`.
+- Spotipy internal status retries are disabled (`retries=0`, `status_retries=0`).
+- Short 429 lockouts are handled in a controlled manner by the client layer.
+- Long 429 lockouts result in a controlled error instead of hours of sleep.
+- `QUOTA_EXCEEDED` has its own exception.
+- 5xx errors receive a few short retries.
+- Request counting is centralized.
+- Playlist and Recently Played pagination are centralized in `client.py`.
+- `publish.py` no longer uses a separate `requests` dependency.
+- All three jobs log structured start/end/error events.
+- A live test against Spotify remains outstanding.
 
-## ADR-017 – History-Collector: 90-Minuten-Default und Gap-Erkennung
-**Status:** beschlossen / Basis umgesetzt
+## ADR-015 – Normalize Spotify playlist metadata centrally
+**Status:** implemented
 
-- Das spätere automatische Polling-Intervall der HA-App hat einen Default von **90 Minuten**.
-- Das Intervall ist eine Benutzeroption und soll im HA-App-Dashboard bzw. in der Konfiguration feinjustierbar sein.
-- Zielbereich vorläufig: 15–180 Minuten.
-- Ein Sync unmittelbar vor der Today-Erstellung bleibt zusätzlich vorgesehen.
-- Ein manueller History-Sync bleibt vorgesehen.
-- Wenn Spotify exakt eine volle Recently-Played-Seite liefert und der älteste zurückgegebene Play noch nach dem gespeicherten Checkpoint liegt, setzt der Collector `gap_possible=true`.
-- Eine mögliche History-Lücke wird geloggt und soll später im UI sichtbar sein.
-- Vereinzelte kleine Lücken sind tolerierbar; systematische oder große Lücken sollen erkennbar sein.
-- Das Scheduling selbst wird erst in der HA-App implementiert; `collector.py` führt weiterhin einen einzelnen Sync-Lauf aus.
+- Spotify/Spotipy field names such as `items` versus the older `tracks` are handled only in `client.py`.
+- `client.py` exposes the internal `item_total` field to domain modules.
+- `sync.py` no longer knows Spotify-specific field names.
+- API/Spotipy field changes therefore do not directly cause unnecessary full syncs.
 
-## ADR-018 – Stale-Result-Sicherung für Today
-**Status:** umgesetzt
+## ADR-016 – Close Recently Played gaps backwards
+**Status:** implemented as a tested state
 
-- `scoring.py` speichert in `today_tracks.json` einen Fingerabdruck des DB-Eingangszustands.
-- Der Fingerabdruck berücksichtigt aktive Sources, Source-Snapshots, Playlist-/History-Zähler und History-Checkpoints.
-- `publish.py` berechnet vor jedem Dry-Run/Write den aktuellen Fingerabdruck erneut.
-- Stimmen die Fingerabdrücke nicht überein, wird Publish vor jedem Spotify-Schreibzugriff abgebrochen.
-- Dadurch kann eine nach Source-Sync oder History-Update veraltete `today_tracks.json` nicht versehentlich veröffentlicht werden.
-- Die Prüfung basiert auf Zustand, nicht auf Dateizeitstempeln.
+- An `after=<checkpoint>` request returns at most 50 plays and is insufficient for larger gaps.
+- After the first page, paginate backwards as needed with `before=<oldest timestamp on page>`.
+- Never send `after` and `before` together.
+- Only accept plays after the requested checkpoint.
+- Existing plays remain unchanged through the database primary key/`INSERT OR IGNORE`.
+- `collector.py --recover-after <ISO timestamp>` permits a targeted backfill of a gap that has already formed.
+- A recovery run must never move the stored `last_played_at` checkpoint backwards.
 
-## ADR-019 – Track-Matching: Spotify-URI zuerst
-**Status:** umgesetzt und mit realem Problemfall verifiziert
+## ADR-017 – History collector: 90-minute default and gap detection
+**Status:** accepted / foundation implemented
 
-- Historische Wiedergaben werden primär über die exakte `track_uri` dem Source-Track zugeordnet.
-- Nur wenn es für diese URI keinen Treffer gibt, wird auf normalisierten Titel + Interpret zurückgefallen.
-- Grund: Spotify-Metadaten können sich zwischen Playlist-API und Extended Streaming History unterscheiden, obwohl dieselbe Track-ID gemeint ist.
-- Verifizierter Fall: `Amour, Mon Cher Amour`
-  - Playlist-Interpret: `Hot Club De Norvege, Jon Larsen, Jimmy Rosenberg`
-  - History-Interpret: `Hot Club De Norvege`
-  - Spotify-URI identisch
-  - 26 History-Plays wurden über URI korrekt erkannt.
-- Interne Match-Werte bleiben maschinenlesbar (`uri`, `title_artist`, `none`); Reports zeigen lesbare Bezeichnungen (`URI`, `Titel+Interpret`, `kein Match`).
+- The future HA app automatic polling interval defaults to **90 minutes**.
+- The interval is a user option and should be adjustable in the HA app dashboard or configuration.
+- Preliminary range: 15–180 minutes.
+- An additional sync immediately before Today generation remains planned.
+- A manual history sync remains planned.
+- If Spotify returns exactly a full Recently Played page and the oldest returned play is still after the stored checkpoint, the collector sets `gap_possible=true`.
+- A possible history gap is logged and should later be visible in the UI.
+- Isolated small gaps are tolerable; systematic or large gaps should be detectable.
+- Scheduling itself will be implemented only in the HA app; `collector.py` continues to run one synchronization pass.
 
-## ADR-020 – Verständliche Diagnosebegriffe
-**Status:** umgesetzt
+## ADR-018 – Stale-result protection for Today
+**Status:** implemented
 
-- `Max. Tage seit Play` wird als `Längste Hörpause` ausgegeben.
-- `Max. Play-Count` wird als `Höchste Wiedergabezahl` ausgegeben.
-- Technische interne Feldnamen bleiben unverändert; nur die Benutzer-/Konsolenausgabe wird verständlicher formuliert.
+- `scoring.py` stores a fingerprint of database input state in `today_tracks.json`.
+- The fingerprint includes active sources, source snapshots, playlist/history counters, and history checkpoints.
+- `publish.py` recalculates the current fingerprint before every dry run/write.
+- When fingerprints differ, publishing is aborted before every Spotify write.
+- This prevents a `today_tracks.json` made stale by a source sync or history update from being published accidentally.
+- The check is state-based, not timestamp-based.
 
-## ADR-021 – Benutzergewichtungen auf 0–100-Skala
-**Status:** beschlossen
+## ADR-019 – Track matching: Spotify URI first
+**Status:** implemented and verified with a real case
 
-- Rare- und Long-Gewichtung werden in Konfiguration und UI als Ganzzahlen auf einer 0–100-Skala dargestellt.
-- Standard ist Rare `50` / Long `50`.
-- Rare und Long ergeben zusammen 100.
-- Dadurch sind auch die Extremstellungen `100 / 0` (nur Rare) und `0 / 100` (nur Long) möglich.
-- Die Scoring-Formel darf diese Werte intern auf Faktoren zwischen 0 und 1 normalisieren.
-- Die interne Normalisierung ist ein Implementierungsdetail und darf nicht dazu führen, dass Benutzer wieder Werte wie `0.50` konfigurieren müssen.
+- Historical plays are assigned to source tracks primarily through exact `track_uri`.
+- Only when that URI has no match does matching fall back to normalized title and artist.
+- Spotify metadata can differ between the Playlist API and Extended Streaming History even when the same track ID is intended.
+- Verified case: `Amour, Mon Cher Amour`
+  - Playlist artist: `Hot Club De Norvege, Jon Larsen, Jimmy Rosenberg`
+  - History artist: `Hot Club De Norvege`
+  - Spotify URI is identical
+  - 26 history plays were correctly recognized through URI.
+- Internal match values remain machine-readable (`uri`, `title_artist`, `none`); reports use readable labels (`URI`, `Titel+Interpret`, `kein Match`). The German report labels are runtime output and remain unchanged.
 
-## ADR-022 – GitHub-Branch-/PR-Workflow
-**Status:** beschlossen
+## ADR-020 – Plain-language diagnostic terms
+**Status:** implemented
 
-- `main` ist der stabile, freigegebene Projektstand.
-- Änderungen werden grundsätzlich in einem separaten Branch vorgenommen.
-- Vor dem Merge nach `main` wird ein Pull Request erstellt.
-- Der Pull Request dient als Freigabepunkt: geänderte Dateien und Diff werden geprüft, bevor gemergt wird.
-- Nach einem Merge synchronisiert der lokale Arbeitsordner den freigegebenen Stand mit `git pull`.
-- Dieser Ablauf gilt sowohl für Änderungen aus dem normalen Chat als auch für spätere Work/Codex-Implementierungen.
+- `Max. Tage seit Play` is emitted as `Längste Hörpause`.
+- `Max. Play-Count` is emitted as `Höchste Wiedergabezahl`.
+- Technical internal field names remain unchanged; only user/console output is worded more clearly.
+
+## ADR-021 – User weights use a 0–100 scale
+**Status:** accepted
+
+- Rare and Long weights are represented as integers on a 0–100 scale in configuration and UI.
+- The default is Rare `50` / Long `50`.
+- Rare and Long total 100.
+- The extreme settings `100 / 0` (Rare only) and `0 / 100` (Long only) are possible.
+- The scoring formula may normalize these internally to factors from 0 to 1.
+- Internal normalization is an implementation detail and must not force users to configure values such as `0.50` again.
+
+## ADR-022 – GitHub branch and PR workflow
+**Status:** accepted
+
+- `main` is the stable, approved project state.
+- Changes are always made on a separate branch.
+- A pull request is created before merging into `main`.
+- The pull request is the approval point: changed files and the diff are reviewed before merging.
+- After a merge, the local working directory synchronizes the approved state with `git pull`.
+- This process applies to changes from the standard chat and future Work/Codex implementations.
+
+## ADR-023 – Repository language convention
+**Status:** accepted
+
+- Code, comments, docstrings, README, PROJECT documentation, ADRs, issues, pull request titles, and pull request descriptions use English.
+- Runtime and terminal output are excluded from this convention until changed by a separate decision.

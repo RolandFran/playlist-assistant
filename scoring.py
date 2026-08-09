@@ -63,7 +63,7 @@ def calculate_combined_score(
     long_score: float,
     config: RuntimeConfig,
 ) -> float:
-    """Kombiniert die Scores mit den intern normalisierten Gewichten."""
+    """Combine scores using internally normalized weights."""
     return (
         config.rare_weight_factor * rare_score
         + config.long_weight_factor * long_score
@@ -71,7 +71,7 @@ def calculate_combined_score(
 
 
 def main(config: RuntimeConfig | None = None):
-    """Führt das Scoring mit einer bereits validierten Konfiguration aus."""
+    """Run scoring with an already validated configuration."""
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
     config = config or get_runtime_config()
 
@@ -95,9 +95,9 @@ def main(config: RuntimeConfig | None = None):
             FROM history
         """).fetchall()
 
-        # History einmal in zwei Indizes aufbauen:
-        # 1. exakte Spotify-URI als primaerer Match
-        # 2. Titel + Interpret nur als Fallback
+        # Build two history indexes once:
+        # 1. exact Spotify URI as the primary match
+        # 2. title + artist only as fallback
         history_by_uri = {}
         history_by_song = {}
 
@@ -152,10 +152,9 @@ def main(config: RuntimeConfig | None = None):
             artist_name = playlist_track["artist_name"]
             added_at = playlist_track["added_at"]
 
-            # Primaer: exakte Spotify-URI.
-            # Nur wenn die URI keinen Treffer liefert, auf Titel + Interpret
-            # zurueckfallen. So werden unterschiedliche Artist-Metadaten bei
-            # identischer Spotify-Track-ID korrekt behandelt.
+            # Primary: exact Spotify URI. Fall back to title + artist only
+            # when the URI does not match. This handles different artist
+            # metadata correctly when the Spotify track ID is identical.
             uri_plays = list(history_by_uri.get(track_uri, []))
 
             if added_at:

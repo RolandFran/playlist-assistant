@@ -1,36 +1,36 @@
 # Playlist Assistant
 
-Playlist Assistant erstellt aus ausgewählten Spotify-Quellplaylists automatisch eine dynamische Playlist `Today`.
+Playlist Assistant automatically creates a dynamic `Today` playlist from selected Spotify source playlists.
 
-Quellen werden über den Marker `#today-source` in der Spotify-Playlistbeschreibung erkannt. Die Auswahl wird anhand einer Kombination aus Seltenheit der Wiedergabe, Zeit seit dem letzten Hören und Künstlerabstand erzeugt.
+Sources are identified by the `#today-source` marker in their Spotify playlist description. The selection combines playback rarity, time since the last listen, and artist spacing.
 
-## Aktueller Stand
+## Current status
 
-Der aktuelle Stand läuft lokal als Python-Anwendung. Zielplattform ist eine Home-Assistant-App mit eigener Oberfläche für Konfiguration, Status, manuelle Aktionen und die erzeugte Playlist.
+The current implementation runs locally as a Python application. The target platform is a Home Assistant app with its own interface for configuration, status, manual actions, and the generated playlist.
 
-Aktuell vorhanden:
+Currently included:
 
-- Spotify-Recently-Played-Collector
-- inkrementeller Source-Sync über `snapshot_id`
-- SQLite-Datenbank `playlist_assistant.db`
-- URI-first Matching gegen die Hörhistorie
-- Rare-, Long- und Combined-Scoring
-- Artist-Min-Gap bei der Today-Auswahl
-- Stale-Result-Sicherung vor dem Publish
-- privates Publish der Zielplaylist `Today`
-- zentraler CLI-Einstieg über `run.py`
+- Spotify Recently Played collector
+- incremental source sync using `snapshot_id`
+- SQLite database: `playlist_assistant.db`
+- URI-first matching against listening history
+- rare, long, and combined scoring
+- artist minimum gap for the Today selection
+- stale-result protection before publishing
+- private publishing of the `Today` target playlist
+- central CLI entry point: `run.py`
 
-## Voraussetzungen
+## Prerequisites
 
 - Python 3
-- Spotify-Developer-Zugang / OAuth-Konfiguration
-- Python-Abhängigkeiten des Projekts
+- Spotify Developer access / OAuth configuration
+- Project Python dependencies
 
-Lokale Secrets gehören in `.env` und werden nicht versioniert.
+Local secrets belong in `.env` and are not versioned.
 
-## Schnellstart
+## Quick start
 
-Die wichtigsten Einzeljobs:
+The main individual jobs:
 
 ```powershell
 python run.py history
@@ -39,41 +39,38 @@ python run.py score
 python run.py publish
 ```
 
-Die Scoring-Werte können pro Lauf explizit übergeben werden. Nicht angegebene
-Werte bleiben bei den Standardwerten:
+Scoring values can be provided explicitly for each run. Values that are not supplied retain their defaults:
 
 ```powershell
 python run.py score --today-size 100 --rare-weight 70 --artist-min-gap 5
 ```
 
-Dieselben Optionen stehen für `python run.py today` zur Verfügung und werden
-an den Scoring-Schritt weitergereicht.
+The same options are available for `python run.py today` and are passed to the scoring step.
 
-Komplette Today-Pipeline:
+Complete Today pipeline:
 
 ```powershell
 python run.py today
 ```
 
-Spotify-Schreibzugriff erfolgt bewusst nicht automatisch. Für einen echten Publish:
+Spotify write access is deliberately not automatic. For an actual publish:
 
 ```powershell
 python run.py today --write
 ```
 
-## Standardwerte
+## Default values
 
 ```text
-Today-Größe:      200
-Rare-Gewichtung:   50
-Long-Gewichtung:   50
-Artist-Min-Gap:    10
+Today size:        200
+Rare weight:        50
+Long weight:        50
+Artist minimum gap: 10
 ```
 
-Nur die Rare-Gewichtung ist konfigurierbar. Die Long-Gewichtung wird immer als
-Gegenwert berechnet, sodass beide zusammen 100 ergeben.
+Only the rare weight is configurable. The long weight is always calculated as its complement, so they add up to 100.
 
-## Datenfluss
+## Data flow
 
 ```text
 collector.py
@@ -85,45 +82,45 @@ scoring.py
 publish.py
 ```
 
-`run.py` führt diese Schritte für `today` in der Reihenfolge History → Sources → Scoring → Publish aus.
+For `today`, `run.py` executes these steps in the order History → Sources → Scoring → Publish.
 
-## Wichtige Dateien
+## Important files
 
-- `run.py` – zentraler CLI-Einstieg
-- `client.py` – zentrale Spotify-/Spotipy-Grenze
-- `collector.py` – Recently-Played-Sync
-- `sync.py` – Source- und Playlist-Synchronisierung
-- `scoring.py` – Matching, Scoring und Today-Auswahl
-- `publish.py` – Frischeprüfung und Spotify-Publish
-- `db_state.py` – Zustandsfingerprint für die Stale-Result-Sicherung
-- `PROJECT.md` – aktueller verbindlicher Projektstand
+- `run.py` – central CLI entry point
+- `client.py` – central Spotify/Spotipy boundary
+- `collector.py` – Recently Played sync
+- `sync.py` – source and playlist synchronization
+- `scoring.py` – matching, scoring, and Today selection
+- `publish.py` – freshness check and Spotify publishing
+- `db_state.py` – state fingerprint for stale-result protection
+- `PROJECT.md` – current authoritative project state
 - `docs/docs-design-notes.md` – Architecture Decision Log
 
-## Lokale, nicht versionierte Daten
+## Local, unversioned data
 
-Unter anderem werden nicht ins Repository aufgenommen:
+The repository does not include, among other things:
 
 - `.env`
-- Spotify-OAuth-Token und Cache-Dateien
+- Spotify OAuth tokens and cache files
 - `playlist_assistant.db`
 - `reports/`
 - `import/`
-- lokale Backups und Python-Caches
+- local backups and Python caches
 
-## Dokumentation
+## Documentation
 
-Für Entwicklung und Architektur gelten zwei Dokumente mit unterschiedlichen Rollen:
+Two documents serve different roles for development and architecture:
 
-- [`PROJECT.md`](PROJECT.md) beschreibt den aktuell verbindlichen Soll- und Projektstand.
-- [`docs/docs-design-notes.md`](docs/docs-design-notes.md) dokumentiert Architekturentscheidungen und deren Entwicklung.
+- [`PROJECT.md`](PROJECT.md) describes the current authoritative target and project state.
+- [`docs/docs-design-notes.md`](docs/docs-design-notes.md) records architectural decisions and their evolution.
 
-Bei Widersprüchen zwischen einem älteren ADR und `PROJECT.md` gilt der in `PROJECT.md` dokumentierte aktuelle Stand.
+If an older ADR conflicts with `PROJECT.md`, the current state documented in `PROJECT.md` takes precedence.
 
-## Entwicklungsworkflow
+## Development workflow
 
-`main` ist der stabile, freigegebene Stand. Änderungen erfolgen in separaten Branches und werden über Pull Requests geprüft, bevor sie nach `main` gemergt werden.
+`main` is the stable, approved state. Changes are made in separate branches and reviewed through pull requests before merging into `main`.
 
-Nach einem freigegebenen Merge wird der lokale Stand mit folgendem Befehl aktualisiert:
+After an approved merge, update the local checkout with:
 
 ```powershell
 git pull
@@ -131,14 +128,14 @@ git pull
 
 ## Home Assistant
 
-Die Home-Assistant-App ist Zielarchitektur, aber noch nicht fertig implementiert. Geplant sind unter anderem:
+The Home Assistant app is the target architecture but is not yet fully implemented. Planned features include:
 
-- konfigurierbare Today-Größe
-- Rare-/Long-Gewichtung
-- Artist-Min-Gap
-- History-Sync-Intervall
-- Spotify-/Degraded-Status
-- manuelle Aktionen
-- tabellarische Today-Anzeige mit Filter- und Sortiermöglichkeiten
+- configurable Today size
+- rare/long weighting
+- artist minimum gap
+- history sync interval
+- Spotify/degraded status
+- manual actions
+- tabular Today view with filtering and sorting
 
-Weitere verbindliche Details stehen in [`PROJECT.md`](PROJECT.md).
+Further authoritative details are in [`PROJECT.md`](PROJECT.md).

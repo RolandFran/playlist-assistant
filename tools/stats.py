@@ -25,7 +25,7 @@ def main():
         conn.commit()
 
         #
-        # 1. Eindeutige Kandidaten aus allen Today Sources
+        # 1. Unique candidates from all Today sources
         #
         conn.execute("""
             DROP TABLE IF EXISTS temp_candidates
@@ -48,7 +48,7 @@ def main():
         """)
 
         #
-        # 2. Primäre Matches über URI
+        # 2. Primary URI matches
         #
         uri_rows = conn.execute("""
             SELECT
@@ -73,7 +73,7 @@ def main():
         """).fetchall()
 
         #
-        # Kandidaten ohne URI-Match sammeln
+        # Collect candidates without a URI match
         #
         no_uri_match = [
             row for row in uri_rows
@@ -81,7 +81,7 @@ def main():
         ]
 
         #
-        # 3. Fallback-Daten EINMAL aggregieren
+        # 3. Aggregate fallback data ONCE
         #
         fallback_rows = conn.execute("""
             SELECT
@@ -135,7 +135,7 @@ def main():
         days_values = []
 
         #
-        # 4. URI-Ergebnisse weiterverarbeiten
+        # 4. Process URI results
         #
         final_rows = []
 
@@ -164,7 +164,7 @@ def main():
                 continue
 
             #
-            # 5. Nur Nulltreffer über Titel + Künstler fallbacken
+            # 5. Fall back to title + artist only for unmatched candidates
             #
             key = (
                 (track_name or "").lower(),
@@ -206,7 +206,7 @@ def main():
             )
 
         #
-        # 6. Statistik
+        # 6. Statistics
         #
         for (
             track_uri,

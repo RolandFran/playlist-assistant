@@ -29,7 +29,7 @@ def main():
         """)
         conn.commit()
 
-        # Eindeutige Kandidaten aus allen #today-source-Playlists.
+        # Unique candidates from all #today-source playlists.
         candidates = conn.execute("""
             SELECT
                 track_uri,
@@ -41,7 +41,7 @@ def main():
             ORDER BY artist_name, track_name
         """).fetchall()
 
-        # History einmal für den Fallback über Titel + Künstler indexieren.
+        # Index history once for title + artist fallback matching.
         fallback_index = {}
         for track_name, artist_name, played_at in conn.execute("""
             SELECT track_name, artist_name, played_at

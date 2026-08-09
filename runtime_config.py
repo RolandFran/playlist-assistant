@@ -1,7 +1,7 @@
-"""Zentrale Laufzeitkonfiguration der Playlist-Engine.
+"""Central runtime configuration for the playlist engine.
 
-Die Werte sind bewusst Home-Assistant-unabhängig. Eine spätere App kann eine
-``RuntimeConfig`` aus ihren Einstellungen erzeugen und an die Engine geben.
+The values are intentionally independent of Home Assistant. A later app can
+create a ``RuntimeConfig`` from its settings and provide it to the engine.
 """
 
 from dataclasses import dataclass
@@ -14,17 +14,16 @@ DEFAULT_ARTIST_MIN_GAP = 10
 
 
 class RuntimeConfigError(ValueError):
-    """Eine Benutzerkonfiguration enthält ungültige Laufzeitwerte."""
+    """A user configuration contains invalid runtime values."""
 
 
 @dataclass(frozen=True)
 class RuntimeConfig:
-    """Benutzerseitige Laufzeitwerte für die Today-Auswahl.
+    """User-facing runtime values for the Today selection.
 
-    ``rare_weight`` bleibt auf der Benutzer-Skala von 0 bis 100.
-    ``long_weight`` wird daraus abgeleitet, damit beide Gewichtungen immer
-    zusammen 100 ergeben. Die normalisierten Faktoren sind nur für die
-    Scoring-Formel bestimmt.
+    ``rare_weight`` remains on the user scale of 0 to 100. ``long_weight`` is
+    derived from it so the two weights always total 100. Normalized factors are
+    intended only for the scoring formula.
     """
 
     today_size: int = DEFAULT_TODAY_SIZE
@@ -38,7 +37,7 @@ class RuntimeConfig:
 
     @property
     def long_weight(self) -> int:
-        """Den zu ``rare_weight`` komplementären Long-Anteil liefern."""
+        """Return the Long portion complementary to ``rare_weight``."""
         return 100 - self.rare_weight
 
     @property
@@ -51,16 +50,16 @@ class RuntimeConfig:
 
 
 def get_runtime_config() -> RuntimeConfig:
-    """Liefert die lokalen Defaults, bis eine spätere App Werte bereitstellt."""
+    """Return local defaults until a later app provides values."""
     return RuntimeConfig()
 
 
 def add_runtime_config_arguments(parser: argparse.ArgumentParser) -> None:
-    """Ergänzt einen CLI-Übergabepunkt für die Werte der Scoring-Engine.
+    """Add a CLI handoff point for scoring-engine values.
 
-    Die Argumente haben absichtlich keinen argparse-Default. Dadurch bleibt
-    ``RuntimeConfig`` die einzige Stelle, die die produktiven Defaults und
-    deren Validierung festlegt.
+    The arguments deliberately have no argparse default. This keeps
+    ``RuntimeConfig`` as the only place defining production defaults and their
+    validation.
     """
     group = parser.add_argument_group("Laufzeitkonfiguration für das Scoring")
     group.add_argument("--today-size", type=int, metavar="ANZAHL")
@@ -69,7 +68,7 @@ def add_runtime_config_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def runtime_config_from_args(args: argparse.Namespace) -> RuntimeConfig:
-    """Erzeugt eine validierte Konfiguration aus optionalen CLI-Werten."""
+    """Create a validated configuration from optional CLI values."""
     values = {
         name: value
         for name, value in (
