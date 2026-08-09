@@ -334,6 +334,6 @@ Supersedes the scheduling portions of ADR-017 and ADR-026.
 - A scheduled Today invokes the existing Today pipeline with `write=True`.
   The manual CLI remains unchanged: `today` is dry-run unless `--write` is
   explicitly supplied.
-- Attempts are recorded before execution. Failed scheduled History runs wait
+- Attempts are recorded after execution. Failed scheduled History runs wait
   until the next normal interval; failed scheduled Today runs wait for the next
   daily slot. No extra retry policy is introduced.

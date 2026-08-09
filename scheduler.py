@@ -38,8 +38,8 @@ class SchedulerPolicy:
         """Run each due scheduled slot at most once and return its outcomes.
 
         ``now`` must return an aware datetime in the host's local timezone.
-        Attempt state is written before execution, so a failure waits for the
-        next normal history interval or the next daily Today slot.
+        Attempt state is written after execution, so a completed failure waits
+        for the next normal history interval or the next daily Today slot.
         """
         local_now = self._now()
         _require_aware_datetime(local_now)
@@ -56,18 +56,18 @@ class SchedulerPolicy:
         if today_due:
             # The existing Today pipeline begins with History.  Recording both
             # attempts avoids scheduling a second History pass beside it.
+            result = self._runtime.run_today(write=True, config=config)
             self._storage.record_scheduler_attempts(
                 history_attempt_at=local_now,
                 today_attempt_date=local_now.date().isoformat(),
             )
-            runs.append(ScheduledRun(
-                "today", self._runtime.run_today(write=True, config=config)
-            ))
+            runs.append(ScheduledRun("today", result))
             return runs
 
         if history_due:
+            result = self._runtime.run_history()
             self._storage.record_scheduler_attempts(history_attempt_at=local_now)
-            runs.append(ScheduledRun("history", self._runtime.run_history()))
+            runs.append(ScheduledRun("history", result))
         return runs
 
 
