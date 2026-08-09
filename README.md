@@ -43,7 +43,7 @@ Die Scoring-Werte können pro Lauf explizit übergeben werden. Nicht angegebene
 Werte bleiben bei den Standardwerten:
 
 ```powershell
-python run.py score --today-size 100 --rare-weight 70 --long-weight 30 --artist-min-gap 5
+python run.py score --today-size 100 --rare-weight 70 --artist-min-gap 5
 ```
 
 Dieselben Optionen stehen für `python run.py today` zur Verfügung und werden
@@ -70,7 +70,8 @@ Long-Gewichtung:   50
 Artist-Min-Gap:    10
 ```
 
-Rare und Long werden für Benutzer auf einer Skala von 0 bis 100 geführt und ergeben zusammen 100.
+Nur die Rare-Gewichtung ist konfigurierbar. Die Long-Gewichtung wird immer als
+Gegenwert berechnet, sodass beide zusammen 100 ergeben.
 
 ## Datenfluss
 

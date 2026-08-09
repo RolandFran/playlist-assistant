@@ -18,7 +18,7 @@ class ScoringConfigTests(unittest.TestCase):
             calculate_combined_score(
                 80.0,
                 20.0,
-                RuntimeConfig(rare_weight=100, long_weight=0),
+                RuntimeConfig(rare_weight=100),
             ),
             80.0,
         )

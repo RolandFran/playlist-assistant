@@ -204,7 +204,6 @@ def runtime_config_to_cli_args(config):
     return [
         "--today-size", str(config.today_size),
         "--rare-weight", str(config.rare_weight),
-        "--long-weight", str(config.long_weight),
         "--artist-min-gap", str(config.artist_min_gap),
     ]
 

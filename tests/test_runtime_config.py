@@ -1,4 +1,6 @@
 import argparse
+import contextlib
+import io
 import unittest
 
 from runtime_config import (
@@ -22,21 +24,27 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(config.long_weight_factor, 0.5)
 
     def test_extreme_weightings_are_valid(self):
-        self.assertEqual(
-            RuntimeConfig(rare_weight=100, long_weight=0).rare_weight_factor,
-            1.0,
-        )
-        self.assertEqual(
-            RuntimeConfig(rare_weight=0, long_weight=100).long_weight_factor,
-            1.0,
-        )
+        self.assertEqual(RuntimeConfig(rare_weight=100).long_weight, 0)
+        self.assertEqual(RuntimeConfig(rare_weight=0).long_weight, 100)
+        self.assertEqual(RuntimeConfig(rare_weight=100).rare_weight_factor, 1.0)
+        self.assertEqual(RuntimeConfig(rare_weight=0).long_weight_factor, 1.0)
+
+    def test_long_weight_is_derived_from_rare_weight(self):
+        config = RuntimeConfig(rare_weight=70)
+
+        self.assertEqual(config.rare_weight, 70)
+        self.assertEqual(config.long_weight, 30)
+
+    def test_long_weight_cannot_be_set_independently(self):
+        with self.assertRaises(TypeError):
+            RuntimeConfig(long_weight=30)
 
     def test_invalid_values_are_rejected(self):
         invalid_configs = (
             {"today_size": 0},
             {"artist_min_gap": -1},
-            {"rare_weight": -1, "long_weight": 101},
-            {"rare_weight": 40, "long_weight": 50},
+            {"rare_weight": -1},
+            {"rare_weight": 101},
             {"today_size": True},
         )
 
@@ -52,16 +60,24 @@ class RuntimeConfigTests(unittest.TestCase):
         config = runtime_config_from_args(parser.parse_args([
             "--today-size", "25",
             "--rare-weight", "70",
-            "--long-weight", "30",
             "--artist-min-gap", "4",
         ]))
 
-        self.assertEqual(config, RuntimeConfig(25, 70, 30, 4))
+        self.assertEqual(config, RuntimeConfig(25, 70, 4))
+        self.assertEqual(config.long_weight, 30)
 
     def test_invalid_external_cli_values_are_rejected(self):
         parser = argparse.ArgumentParser()
         add_runtime_config_arguments(parser)
-        args = parser.parse_args(["--rare-weight", "70", "--long-weight", "20"])
+        args = parser.parse_args(["--rare-weight", "101"])
 
         with self.assertRaises(RuntimeConfigError):
             runtime_config_from_args(args)
+
+    def test_long_weight_is_not_a_cli_option(self):
+        parser = argparse.ArgumentParser()
+        add_runtime_config_arguments(parser)
+
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                parser.parse_args(["--long-weight", "30"])
