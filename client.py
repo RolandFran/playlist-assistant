@@ -510,6 +510,15 @@ class SpotifyClient:
             public=False,
         )
 
+    def rename_playlist(self, playlist_id: str, name: str) -> None:
+        """Rename the persisted target playlist without creating a new one."""
+        self._call(
+            "playlist_change_details",
+            self._sp.playlist_change_details,
+            playlist_id,
+            name=name,
+        )
+
     def replace_playlist_items(
         self,
         playlist_id: str,

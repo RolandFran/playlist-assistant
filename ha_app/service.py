@@ -14,6 +14,7 @@ from typing import Callable, Mapping
 
 from application_paths import ApplicationPaths
 from application_storage import ApplicationStorage
+from ha_app.control_panel import ControlPanel, start_ingress
 from run import create_runtime_orchestrator
 from scheduler import SchedulerPolicy
 
@@ -129,6 +130,9 @@ class ServiceHost:
         stop_event = stop_event or Event()
         LOGGER.info("service_started tick_seconds=%d data_dir=%s", self.tick_seconds, self.paths.data_dir)
         health_server = _start_health_server(lambda: self._connected)
+        ingress_server = start_ingress(
+            ControlPanel(self.paths, spotify_available=lambda: self._connected)
+        )
         try:
             while not stop_event.is_set():
                 self.tick()
@@ -136,6 +140,8 @@ class ServiceHost:
         finally:
             health_server.shutdown()
             health_server.server_close()
+            ingress_server.shutdown()
+            ingress_server.server_close()
             LOGGER.info("service_stopped")
 
 

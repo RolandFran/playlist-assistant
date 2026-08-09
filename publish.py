@@ -11,6 +11,7 @@ from application_paths import (
     add_data_dir_argument,
     application_paths_from_args,
 )
+from application_storage import ApplicationStorage
 from db_state import get_current_input_fingerprint
 
 from client import (
@@ -149,9 +150,13 @@ def main():
 
     print(f"Scoring-Stand:       aktuell ({input_fingerprint[:12]}...)")
 
+    storage = ApplicationStorage(paths.database_path)
+    target_name, target_playlist_id = storage.get_target_playlist()
     client = SpotifyClient()
-    target_playlist = client.find_owned_playlist_by_name(
-        TARGET_PLAYLIST_NAME
+    target_playlist = (
+        {"id": target_playlist_id}
+        if target_playlist_id
+        else client.find_owned_playlist_by_name(target_name)
     )
 
     print_plan(payload, uris, target_playlist)
@@ -163,21 +168,21 @@ def main():
 
     logger.info(
         "publish started playlist=%s tracks=%d",
-        TARGET_PLAYLIST_NAME,
+        target_name,
         len(uris),
     )
 
     if target_playlist is None:
-        target_playlist = client.create_private_playlist(
-            TARGET_PLAYLIST_NAME,
-        )
+        target_playlist = client.create_private_playlist(target_name)
+        storage.save_target_playlist(target_name, target_playlist["id"])
         print(
-            f"Playlist '{TARGET_PLAYLIST_NAME}' angelegt: "
+            f"Playlist '{target_name}' angelegt: "
             f"{target_playlist['id']}"
         )
 
     playlist_id = target_playlist["id"]
 
+    client.rename_playlist(playlist_id, target_name)
     client.set_playlist_private(playlist_id)
     print("Playlist-Sichtbarkeit auf privat gesetzt.")
 
@@ -188,13 +193,13 @@ def main():
 
     print(
         f"Fertig: {len(uris)} Tracks nach "
-        f"'{TARGET_PLAYLIST_NAME}' geschrieben."
+        f"'{target_name}' geschrieben."
     )
     print(f"Spotify-Requests: {client.request_count}")
 
     logger.info(
         "publish finished playlist=%s tracks=%d spotify_requests=%d",
-        TARGET_PLAYLIST_NAME,
+        target_name,
         len(uris),
         client.request_count,
     )

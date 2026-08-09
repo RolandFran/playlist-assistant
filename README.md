@@ -1,8 +1,8 @@
 # Playlist Assistant
 
-Playlist Assistant automatically creates a dynamic `Today` playlist from selected Spotify source playlists.
+Playlist Assistant creates a private Spotify `Today` playlist from the playlists you choose. Add `#today-source` to a Spotify playlist description to include it as a source. Playlist Assistant scores those tracks by how rarely and how long ago they were played, then uses artist spacing to make the resulting Today playlist feel varied.
 
-Sources are identified by the `#today-source` marker in their Spotify playlist description. The selection combines playback rarity, time since the last listen, and artist spacing.
+The private `Today` playlist stays up to date without changing the source playlists.
 
 ## Current status
 

@@ -27,6 +27,9 @@ class FakeSpotifyClient:
     def set_playlist_private(self, playlist_id):
         self.calls.append(("set_private", playlist_id))
 
+    def rename_playlist(self, playlist_id, name):
+        self.calls.append(("rename", playlist_id, name))
+
     def replace_playlist_items(self, playlist_id, uris):
         self.calls.append(("replace", playlist_id, uris))
 
@@ -75,6 +78,7 @@ class PublishPrivacyTests(unittest.TestCase):
             [
                 ("find", "Today"),
                 ("create_private", "Today"),
+                ("rename", "created-target", "Today"),
                 ("set_private", "created-target"),
                 ("replace", "created-target", ["spotify:track:one"]),
             ],
@@ -107,6 +111,7 @@ class PublishPrivacyTests(unittest.TestCase):
             client.calls,
             [
                 ("find", "Today"),
+                ("rename", "persisted-target", "Today"),
                 ("set_private", "persisted-target"),
                 ("replace", "persisted-target", ["spotify:track:one"]),
             ],
