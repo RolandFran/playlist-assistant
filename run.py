@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from runtime_config import add_runtime_config_arguments, runtime_config_from_args
+
 
 PROJECT_DIR = Path(__file__).resolve().parent
 
@@ -70,8 +72,9 @@ def run_sources(force_full=False):
     )
 
 
-def run_score():
-    run_script(SCRIPTS["score"])
+def run_score(config=None):
+    args = runtime_config_to_cli_args(config)
+    run_script(SCRIPTS["score"], *args)
 
 
 def run_publish(write=False):
@@ -83,7 +86,7 @@ def run_publish(write=False):
     )
 
 
-def run_today(write=False, force_full_sources=False):
+def run_today(write=False, force_full_sources=False, config=None):
     """
     Komplette Today-Pipeline.
 
@@ -102,7 +105,7 @@ def run_today(write=False, force_full_sources=False):
 
     run_history()
     run_sources(force_full=force_full_sources)
-    run_score()
+    run_score(config=config)
     run_publish(write=write)
 
     print()
@@ -152,10 +155,11 @@ def build_parser():
         help="Alle Sources vollstaendig neu laden.",
     )
 
-    subparsers.add_parser(
+    score_parser = subparsers.add_parser(
         "score",
         help="Today-Auswahl neu berechnen.",
     )
+    add_runtime_config_arguments(score_parser)
 
     publish_parser = subparsers.add_parser(
         "publish",
@@ -179,6 +183,7 @@ def build_parser():
             "Ohne diese Option bleibt Publish ein Dry-Run."
         ),
     )
+    add_runtime_config_arguments(today_parser)
     today_parser.add_argument(
         "--full-sources",
         action="store_true",
@@ -189,6 +194,18 @@ def build_parser():
     )
 
     return parser
+
+
+def runtime_config_to_cli_args(config):
+    """Reicht nur ausdrücklich gesetzte Werte an den Scoring-Prozess weiter."""
+    if config is None:
+        return []
+
+    return [
+        "--today-size", str(config.today_size),
+        "--rare-weight", str(config.rare_weight),
+        "--artist-min-gap", str(config.artist_min_gap),
+    ]
 
 
 def main():
@@ -206,7 +223,7 @@ def main():
         )
 
     elif args.command == "score":
-        run_score()
+        run_score(runtime_config_from_args(args))
 
     elif args.command == "publish":
         run_publish(
@@ -217,6 +234,7 @@ def main():
         run_today(
             write=args.write,
             force_full_sources=args.full_sources,
+            config=runtime_config_from_args(args),
         )
 
     else:
