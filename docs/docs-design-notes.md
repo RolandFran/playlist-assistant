@@ -202,15 +202,14 @@ The following items are not final and will be completed later:
 ## ADR-017 – History collector: 90-minute default and gap detection
 **Status:** accepted / foundation implemented
 
-- The future HA app automatic polling interval defaults to **90 minutes**.
-- The interval is a user option and should be adjustable in the HA app dashboard or configuration.
-- Preliminary range: 15–180 minutes.
+- The future scheduling target defaults to **90 minutes** for history polling.
+- The interval is later app-layer configuration; this decision does not create a daemon or hard-code a daily Today execution time.
 - An additional sync immediately before Today generation remains planned.
 - A manual history sync remains planned.
 - If Spotify returns exactly a full Recently Played page and the oldest returned play is still after the stored checkpoint, the collector sets `gap_possible=true`.
 - A possible history gap is logged and should later be visible in the UI.
 - Isolated small gaps are tolerable; systematic or large gaps should be detectable.
-- Scheduling itself will be implemented only in the HA app; `collector.py` continues to run one synchronization pass.
+- `collector.py` continues to run one synchronization pass; scheduler-ready runtime orchestration is defined in ADR-024.
 
 ## ADR-018 – Stale-result protection for Today
 **Status:** implemented
@@ -267,3 +266,13 @@ The following items are not final and will be completed later:
 
 - Code, comments, docstrings, README, PROJECT documentation, ADRs, issues, pull request titles, and pull request descriptions use English.
 - Runtime and terminal output are excluded from this convention until changed by a separate decision.
+
+## ADR-024 – Scheduler-ready runtime orchestration
+**Status:** implemented
+
+- `runtime.py` provides an in-process boundary for explicit `history` and `today` jobs.
+- The `today` job preserves the order History → Sources → Scoring → Publish.
+- Every job returns success/failure, start/end timestamps, duration, and the failed step when applicable.
+- Same-job overlap is rejected within one process; no distributed lock is introduced.
+- The default future history cadence is exposed as 90 minutes, but no daemon, OS scheduler, Home Assistant dependency, or player-state check is added.
+- Spotify API and rate-limit handling remain in the existing client and domain layers.

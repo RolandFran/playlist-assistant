@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from runtime_config import add_runtime_config_arguments, runtime_config_from_args
+from runtime import RuntimeOrchestrator
 
 
 PROJECT_DIR = Path(__file__).resolve().parent
@@ -103,10 +104,14 @@ def run_today(write=False, force_full_sources=False, config=None):
     print("# Playlist Assistant - Today Pipeline")
     print()
 
-    run_history()
-    run_sources(force_full=force_full_sources)
-    run_score(config=config)
-    run_publish(write=write)
+    result = create_runtime_orchestrator().run_today(
+        write=write,
+        force_full_sources=force_full_sources,
+        config=config,
+    )
+
+    if not result.success:
+        raise result.error
 
     print()
     print("=" * 70)
@@ -123,6 +128,16 @@ def run_today(write=False, force_full_sources=False, config=None):
         )
 
     print("=" * 70)
+
+
+def create_runtime_orchestrator():
+    """Create the reusable orchestration boundary for explicit runtime jobs."""
+    return RuntimeOrchestrator(
+        history_runner=run_history,
+        sources_runner=run_sources,
+        score_runner=run_score,
+        publish_runner=run_publish,
+    )
 
 
 def build_parser():
