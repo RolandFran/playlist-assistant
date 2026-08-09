@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from threading import Event, Thread
 import unittest
 
 from runtime import DEFAULT_HISTORY_POLL_MINUTES, RuntimeOrchestrator
@@ -111,6 +112,40 @@ class RuntimeOrchestrationTests(unittest.TestCase):
         self.assertFalse(nested_results[0].success)
         self.assertEqual(nested_results[0].failed_step, "history")
         self.assertIn("already running", str(nested_results[0].error))
+
+    def test_concurrent_same_job_is_rejected_before_entering_runner(self):
+        calls = []
+        runner_started = Event()
+        release_runner = Event()
+
+        def blocking_history_runner(**kwargs):
+            calls.append(("history", kwargs))
+            runner_started.set()
+            release_runner.wait(timeout=1)
+
+        runtime = self.make_runtime(calls, history_runner=blocking_history_runner)
+        results = []
+
+        first = Thread(target=lambda: results.append(runtime.run_history()))
+        first.start()
+        self.assertTrue(runner_started.wait(timeout=1))
+
+        second = Thread(target=lambda: results.append(runtime.run_history()))
+        second.start()
+        second.join(timeout=1)
+
+        self.assertFalse(second.is_alive())
+        self.assertEqual(calls, [("history", {"recover_after": None})])
+
+        release_runner.set()
+        first.join(timeout=1)
+
+        self.assertFalse(first.is_alive())
+        self.assertEqual(len(results), 2)
+        self.assertEqual(sum(result.success for result in results), 1)
+        rejected = next(result for result in results if not result.success)
+        self.assertEqual(rejected.failed_step, "history")
+        self.assertIn("already running", str(rejected.error))
 
     def test_history_cadence_default_is_ninety_minutes(self):
         self.assertEqual(DEFAULT_HISTORY_POLL_MINUTES, 90)

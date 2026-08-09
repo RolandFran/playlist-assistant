@@ -7,6 +7,7 @@ ordering or overlap protection.
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from threading import Lock
 from typing import Callable, Optional
 
 
@@ -44,6 +45,7 @@ class RuntimeOrchestrator:
         self._publish_runner = publish_runner
         self._now = now or (lambda: datetime.now(timezone.utc))
         self._active_jobs: set[str] = set()
+        self._active_jobs_lock = Lock()
 
     def run_history(self, *, recover_after=None) -> JobResult:
         """Run one history synchronization pass."""
@@ -73,17 +75,18 @@ class RuntimeOrchestrator:
     def _run_job(self, job_name: str, steps) -> JobResult:
         started_at = self._now()
 
-        if job_name in self._active_jobs:
-            error = RuntimeError(f"Job {job_name!r} is already running.")
-            return self._result(
-                job_name,
-                False,
-                started_at,
-                failed_step=job_name,
-                error=error,
-            )
+        with self._active_jobs_lock:
+            if job_name in self._active_jobs:
+                error = RuntimeError(f"Job {job_name!r} is already running.")
+                return self._result(
+                    job_name,
+                    False,
+                    started_at,
+                    failed_step=job_name,
+                    error=error,
+                )
 
-        self._active_jobs.add(job_name)
+            self._active_jobs.add(job_name)
 
         try:
             for step_name, step in steps:
@@ -100,7 +103,8 @@ class RuntimeOrchestrator:
 
             return self._result(job_name, True, started_at)
         finally:
-            self._active_jobs.remove(job_name)
+            with self._active_jobs_lock:
+                self._active_jobs.remove(job_name)
 
     def _result(
         self,
