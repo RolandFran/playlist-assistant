@@ -39,6 +39,16 @@ python run.py score
 python run.py publish
 ```
 
+Die Scoring-Werte können pro Lauf explizit übergeben werden. Nicht angegebene
+Werte bleiben bei den Standardwerten:
+
+```powershell
+python run.py score --today-size 100 --rare-weight 70 --long-weight 30 --artist-min-gap 5
+```
+
+Dieselben Optionen stehen für `python run.py today` zur Verfügung und werden
+an den Scoring-Schritt weitergereicht.
+
 Komplette Today-Pipeline:
 
 ```powershell

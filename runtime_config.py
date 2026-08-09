@@ -5,6 +5,7 @@ Die Werte sind bewusst Home-Assistant-unabhängig. Eine spätere App kann eine
 """
 
 from dataclasses import dataclass
+import argparse
 
 
 DEFAULT_TODAY_SIZE = 200
@@ -53,6 +54,35 @@ class RuntimeConfig:
 def get_runtime_config() -> RuntimeConfig:
     """Liefert die lokalen Defaults, bis eine spätere App Werte bereitstellt."""
     return RuntimeConfig()
+
+
+def add_runtime_config_arguments(parser: argparse.ArgumentParser) -> None:
+    """Ergänzt einen CLI-Übergabepunkt für die Werte der Scoring-Engine.
+
+    Die Argumente haben absichtlich keinen argparse-Default. Dadurch bleibt
+    ``RuntimeConfig`` die einzige Stelle, die die produktiven Defaults und
+    deren Validierung festlegt.
+    """
+    group = parser.add_argument_group("Laufzeitkonfiguration für das Scoring")
+    group.add_argument("--today-size", type=int, metavar="ANZAHL")
+    group.add_argument("--rare-weight", type=int, metavar="0-100")
+    group.add_argument("--long-weight", type=int, metavar="0-100")
+    group.add_argument("--artist-min-gap", type=int, metavar="ANZAHL")
+
+
+def runtime_config_from_args(args: argparse.Namespace) -> RuntimeConfig:
+    """Erzeugt eine validierte Konfiguration aus optionalen CLI-Werten."""
+    values = {
+        name: value
+        for name, value in (
+            ("today_size", getattr(args, "today_size", None)),
+            ("rare_weight", getattr(args, "rare_weight", None)),
+            ("long_weight", getattr(args, "long_weight", None)),
+            ("artist_min_gap", getattr(args, "artist_min_gap", None)),
+        )
+        if value is not None
+    }
+    return RuntimeConfig(**values)
 
 
 def _require_positive_int(name: str, value: int) -> None:

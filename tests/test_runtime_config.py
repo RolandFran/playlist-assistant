@@ -1,6 +1,13 @@
+import argparse
 import unittest
 
-from runtime_config import RuntimeConfig, RuntimeConfigError, get_runtime_config
+from runtime_config import (
+    RuntimeConfig,
+    RuntimeConfigError,
+    add_runtime_config_arguments,
+    get_runtime_config,
+    runtime_config_from_args,
+)
 
 
 class RuntimeConfigTests(unittest.TestCase):
@@ -37,3 +44,24 @@ class RuntimeConfigTests(unittest.TestCase):
             with self.subTest(values=values):
                 with self.assertRaises(RuntimeConfigError):
                     RuntimeConfig(**values)
+
+    def test_external_cli_values_are_validated_by_runtime_config(self):
+        parser = argparse.ArgumentParser()
+        add_runtime_config_arguments(parser)
+
+        config = runtime_config_from_args(parser.parse_args([
+            "--today-size", "25",
+            "--rare-weight", "70",
+            "--long-weight", "30",
+            "--artist-min-gap", "4",
+        ]))
+
+        self.assertEqual(config, RuntimeConfig(25, 70, 30, 4))
+
+    def test_invalid_external_cli_values_are_rejected(self):
+        parser = argparse.ArgumentParser()
+        add_runtime_config_arguments(parser)
+        args = parser.parse_args(["--rare-weight", "70", "--long-weight", "20"])
+
+        with self.assertRaises(RuntimeConfigError):
+            runtime_config_from_args(args)

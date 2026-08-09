@@ -2,10 +2,16 @@ import json
 import math
 import os
 import sqlite3
+import argparse
 from datetime import datetime, timezone
 
 from db_state import build_input_state, fingerprint_state
-from runtime_config import RuntimeConfig, get_runtime_config
+from runtime_config import (
+    RuntimeConfig,
+    add_runtime_config_arguments,
+    get_runtime_config,
+    runtime_config_from_args,
+)
 
 
 DB_PATH = "playlist_assistant.db"
@@ -64,9 +70,10 @@ def calculate_combined_score(
     )
 
 
-def main():
+def main(config: RuntimeConfig | None = None):
+    """Führt das Scoring mit einer bereits validierten Konfiguration aus."""
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-    config = get_runtime_config()
+    config = config or get_runtime_config()
 
     conn = sqlite3.connect(DB_PATH)
 
@@ -308,6 +315,8 @@ def main():
         output_lines.append(
             f"Gewichtung:          Rare {config.rare_weight} / Long {config.long_weight}"
         )
+        output_lines.append(f"Konfiguriert:         {config.today_size} Titel")
+        output_lines.append(f"Artist-Min-Gap:       {config.artist_min_gap}")
 
         today_lines = []
         today_lines.append(
@@ -369,6 +378,12 @@ def main():
             "artist_min_gap": config.artist_min_gap,
             "rare_weight": config.rare_weight,
             "long_weight": config.long_weight,
+            "runtime_config": {
+                "today_size": config.today_size,
+                "rare_weight": config.rare_weight,
+                "long_weight": config.long_weight,
+                "artist_min_gap": config.artist_min_gap,
+            },
             "tracks": [
                 {
                     "position": rank,
@@ -421,4 +436,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description="Today-Auswahl mit optionaler Laufzeitkonfiguration berechnen."
+    )
+    add_runtime_config_arguments(parser)
+    main(runtime_config_from_args(parser.parse_args()))
