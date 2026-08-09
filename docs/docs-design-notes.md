@@ -245,10 +245,10 @@ The following items are not final and will be completed later:
 ## ADR-021 – User weights use a 0–100 scale
 **Status:** accepted
 
-- Rare and Long weights are represented as integers on a 0–100 scale in configuration and UI.
-- The default is Rare `50` / Long `50`.
-- Rare and Long total 100.
-- The extreme settings `100 / 0` (Rare only) and `0 / 100` (Long only) are possible.
+- `rare_weight` is the only user-configurable weight and is represented as an integer on a 0–100 scale in configuration and UI.
+- `long_weight` is always derived as `100 - rare_weight`; the default is Rare `50` / derived Long `50`.
+- The complete Rare range constructs the corresponding Long range: `0 / 100` through `100 / 0`.
+- Rare and Long therefore always total 100 without two independently supplied user weights.
 - The scoring formula may normalize these internally to factors from 0 to 1.
 - Internal normalization is an implementation detail and must not force users to configure values such as `0.50` again.
 

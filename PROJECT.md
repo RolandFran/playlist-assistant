@@ -142,11 +142,11 @@ Default weighting:
 - Rare: 50
 - Long: 50
 
-The **user/configuration scale for weights is 0 to 100**.
+`rare_weight` is the only configurable weight and uses a **0 to 100** user/configuration scale. `long_weight` is always derived as `100 - rare_weight`.
 
 For mathematical calculation, values may be normalized internally to factors from 0.0 to 1.0. This internal representation is not a user value.
 
-Rare and Long should total 100. This also permits the extremes `100 / 0` (Rare only) and `0 / 100` (Long only). The later HA app implementation will decide how the UI couples the two values.
+The complete Rare range maps constructively to Long: `0` Rare produces `100` Long, and `100` Rare produces `0` Long. The two weights therefore always total 100 without an independently configurable Long input.
 
 ## Artist spacing
 
@@ -160,16 +160,16 @@ If the configured spacing cannot be maintained with the remaining candidate pool
 
 ## Current local defaults
 
-The intended user values are:
+`RuntimeConfig` is the central configuration layer. Its defaults are:
 
 ```text
-TODAY_SIZE = 200
-RARE_WEIGHT = 50
-LONG_WEIGHT = 50
-ARTIST_MIN_GAP = 10
+today_size = 200
+rare_weight = 50
+long_weight = 50 (derived)
+artist_min_gap = 10
 ```
 
-The current code still holds the weight factors as `0.50 / 0.50` in `scoring.py`. This is transitional and will be replaced by a central configuration layer.
+`long_weight` is derived as `100 - rare_weight`; it is not independently configurable. `RuntimeConfig` also exposes the normalized factors used by the scoring formula.
 
 ## History synchronization
 
