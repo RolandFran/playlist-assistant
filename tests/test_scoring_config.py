@@ -30,7 +30,7 @@ class ScoringConfigTests(unittest.TestCase):
             {"artist_name": "Artist B", "track_name": "Three"},
         ]
 
-        selected, relaxed_count = select_today(candidates, size=2, artist_min_gap=1)
+        selected, relaxed_count = select_today(candidates, size=2, artist_gap=1)
 
         self.assertEqual([row["track_name"] for row in selected], ["One", "Three"])
         self.assertEqual(relaxed_count, 0)

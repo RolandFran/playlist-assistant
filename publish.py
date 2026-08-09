@@ -97,7 +97,7 @@ def print_plan(payload, uris, target_playlist):
         f"{PLAYLIST_WRITE_BATCH_SIZE}"
     )
     print(f"Scoring-Groesse:    {payload.get('configured_size', '-')}")
-    print(f"Artist-Min-Gap:     {payload.get('artist_min_gap', '-')}")
+    print(f"Artist-Gap:         {payload.get('artist_gap', '-')}")
     print("Sichtbarkeit:       privat")
     print()
 

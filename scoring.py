@@ -27,7 +27,7 @@ def normalize(value: str | None) -> str:
     return (value or "").strip().casefold()
 
 
-def select_today(candidates, size: int, artist_min_gap: int):
+def select_today(candidates, size: int, artist_gap: int):
     remaining = list(candidates)
     selected = []
     relaxed_count = 0
@@ -37,8 +37,8 @@ def select_today(candidates, size: int, artist_min_gap: int):
     while remaining and len(selected) < target_size:
         recent_artists = {
             normalize(row["artist_name"])
-            for row in selected[-artist_min_gap:]
-        } if artist_min_gap > 0 else set()
+            for row in selected[-artist_gap:]
+        } if artist_gap > 0 else set()
 
         chosen_index = None
 
@@ -272,7 +272,7 @@ def main(config: RuntimeConfig | None = None):
         today_rows, relaxed_count = select_today(
             candidates,
             config.today_size,
-            config.artist_min_gap,
+            config.artist_gap,
         )
 
         output_lines = []
@@ -315,7 +315,7 @@ def main(config: RuntimeConfig | None = None):
             f"Gewichtung:          Rare {config.rare_weight} / Long {config.long_weight}"
         )
         output_lines.append(f"Konfiguriert:         {config.today_size} Titel")
-        output_lines.append(f"Artist-Min-Gap:       {config.artist_min_gap}")
+        output_lines.append(f"Artist-Gap:           {config.artist_gap}")
 
         today_lines = []
         today_lines.append(
@@ -352,7 +352,7 @@ def main(config: RuntimeConfig | None = None):
         today_lines.append("=" * 120)
         today_lines.append(f"Auswahlgroesse:       {len(today_rows)}")
         today_lines.append(f"Konfiguriert:         {config.today_size}")
-        today_lines.append(f"Artist-Min-Gap:       {config.artist_min_gap}")
+        today_lines.append(f"Artist-Gap:           {config.artist_gap}")
         today_lines.append(f"Gap-Ausnahmen:        {relaxed_count}")
         today_lines.append(
             f"Gewichtung:           Rare {config.rare_weight} / Long {config.long_weight}"
@@ -374,14 +374,14 @@ def main(config: RuntimeConfig | None = None):
             "input_state": input_state,
             "playlist_size": len(today_rows),
             "configured_size": config.today_size,
-            "artist_min_gap": config.artist_min_gap,
+            "artist_gap": config.artist_gap,
             "rare_weight": config.rare_weight,
             "long_weight": config.long_weight,
             "runtime_config": {
                 "today_size": config.today_size,
                 "rare_weight": config.rare_weight,
                 "long_weight": config.long_weight,
-                "artist_min_gap": config.artist_min_gap,
+                "artist_gap": config.artist_gap,
             },
             "tracks": [
                 {
@@ -417,7 +417,7 @@ def main(config: RuntimeConfig | None = None):
             f"Long {config.long_weight}"
         )
         print(f"Today-Auswahl:        {len(today_rows)}")
-        print(f"Artist-Min-Gap:       {config.artist_min_gap}")
+        print(f"Artist-Gap:           {config.artist_gap}")
         print(f"Gap-Ausnahmen:        {relaxed_count}")
         print(f"Input-Fingerprint:    {input_fingerprint[:12]}...")
         print()

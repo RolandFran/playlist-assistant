@@ -3,6 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from application_storage import ApplicationStorage
 from runtime_config import add_runtime_config_arguments, runtime_config_from_args
 from runtime import RuntimeOrchestrator
 
@@ -137,6 +138,7 @@ def create_runtime_orchestrator():
         sources_runner=run_sources,
         score_runner=run_score,
         publish_runner=run_publish,
+        status_store=ApplicationStorage(PROJECT_DIR / "playlist_assistant.db"),
     )
 
 
@@ -219,7 +221,7 @@ def runtime_config_to_cli_args(config):
     return [
         "--today-size", str(config.today_size),
         "--rare-weight", str(config.rare_weight),
-        "--artist-min-gap", str(config.artist_min_gap),
+        "--artist-gap", str(config.artist_gap),
     ]
 
 
@@ -228,9 +230,11 @@ def main():
     args = parser.parse_args()
 
     if args.command == "history":
-        run_history(
+        result = create_runtime_orchestrator().run_history(
             recover_after=args.recover_after,
         )
+        if not result.success:
+            raise result.error
 
     elif args.command == "sources":
         run_sources(
@@ -238,7 +242,9 @@ def main():
         )
 
     elif args.command == "score":
-        run_score(runtime_config_from_args(args))
+        run_score(runtime_config_from_args(
+            args, ApplicationStorage(PROJECT_DIR / "playlist_assistant.db").load_runtime_config()
+        ))
 
     elif args.command == "publish":
         run_publish(
@@ -249,7 +255,9 @@ def main():
         run_today(
             write=args.write,
             force_full_sources=args.full_sources,
-            config=runtime_config_from_args(args),
+            config=runtime_config_from_args(
+                args, ApplicationStorage(PROJECT_DIR / "playlist_assistant.db").load_runtime_config()
+            ),
         )
 
     else:

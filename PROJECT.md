@@ -152,7 +152,7 @@ The complete Rare range maps constructively to Long: `0` Rare produces `100` Lon
 
 ## Artist spacing
 
-Default: `artist_min_gap = 10`
+Default: `artist_gap = 10`
 
 During selection, the same normalized artist should ideally not recur within the previous 10 selected positions.
 
@@ -168,16 +168,17 @@ If the configured spacing cannot be maintained with the remaining candidate pool
 today_size = 200
 rare_weight = 50
 long_weight = 50 (derived)
-artist_min_gap = 10
+artist_gap = 10
+history_poll_minutes = 90
 ```
 
-`long_weight` is derived as `100 - rare_weight`; it is not independently configurable. `RuntimeConfig` also exposes the normalized factors used by the scoring formula.
+Application settings are persisted in the existing `playlist_assistant.db` through `application_storage.py`. `long_weight` is derived as `100 - rare_weight`; it is not independently configurable or stored. `RuntimeConfig` also exposes the normalized factors used by the scoring formula.
 
 ## History synchronization
 
 `collector.py` runs one synchronization pass at a time.
 
-`runtime.py` provides scheduler-ready orchestration for explicit `history` and `today` jobs. Each invocation records success or failure, start and end timestamps, duration, and the failed pipeline step when applicable. It rejects overlapping runs of the same job within one process. It does not run a daemon or schedule jobs itself.
+`runtime.py` provides scheduler-ready orchestration for explicit `history` and `today` jobs. Each invocation records success or failure, start and end timestamps, duration, and the failed pipeline step when applicable. Completed results are persisted as serializable last-job status in the existing SQLite database, including error type/message and the last successful completion time. It rejects overlapping runs of the same job within one process. It does not run a daemon or schedule jobs itself.
 
 The configured target cadence for future scheduling is:
 
@@ -220,8 +221,7 @@ The HA app is intended to show a visible degraded mode. Local database evaluatio
 Normal user configuration should include at least:
 
 - Today size / `today_size`
-- rare weight
-- long weight
+- rare weight / `rare_weight` (Long is derived, not independently configured)
 - artist minimum gap
 - history sync interval
 - later scheduling/playlist options
@@ -262,6 +262,7 @@ The German labels above are runtime output and intentionally remain unchanged. T
 
 - `client.py` – central Spotify/Spotipy boundary
 - `runtime.py` – scheduler-ready execution of explicit history and Today jobs
+- `application_storage.py` – SQLite boundary for application settings and serializable job status
 - `collector.py` – one Recently Played synchronization pass
 - `history_import.py` – transactional Extended Streaming History import
 - `sync.py` – source playlist and candidate synchronization
