@@ -69,6 +69,37 @@ def calculate_combined_score(
     )
 
 
+def terminal_summary_lines(
+    *,
+    paths: ApplicationPaths,
+    config: RuntimeConfig,
+    candidate_count: int,
+    max_play_count: int,
+    max_days_since: float,
+    today_count: int,
+) -> list[str]:
+    """Return the compact, human-facing completion summary for scoring."""
+    return [
+        "Scoring abgeschlossen.",
+        "",
+        f"Bewertete Titel:      {candidate_count}",
+        f"Meiste Wiedergaben:   {max_play_count}×",
+        f"Längste Hörpause:     {max_days_since:.1f} Tage",
+        f"Gewichtung:           Rare {config.rare_weight} / Long {config.long_weight}",
+        f"Ausgewählte Titel für Today: {today_count}",
+        f"Künstlerabstand:      {config.artist_gap} Titel",
+        "",
+        "Scoring-Report:",
+        str(paths.scoring_report_path.resolve()),
+        "",
+        "Today-Liste:",
+        str(paths.today_report_path.resolve()),
+        "",
+        "Spotify-Importdaten:",
+        str(paths.today_tracks_path.resolve()),
+    ]
+
+
 def main(
     config: RuntimeConfig | None = None,
     paths: ApplicationPaths | None = None,
@@ -410,28 +441,15 @@ def main(
             json.dump(today_payload, f, ensure_ascii=False, indent=2)
 
         print()
-        print("Scoring abgeschlossen.")
-        print()
-        print(f"Kandidaten:          {len(candidates)}")
-        print(f"Höchste Wiedergabezahl: {max_play_count}")
-        print(f"Längste Hörpause:    {max_days_since:.1f} Tage")
-        print(
-            f"Gewichtung:          Rare {config.rare_weight} / "
-            f"Long {config.long_weight}"
-        )
-        print(f"Today-Auswahl:        {len(today_rows)}")
-        print(f"Artist-Gap:           {config.artist_gap}")
-        print(f"Gap-Ausnahmen:        {relaxed_count}")
-        print(f"Input-Fingerprint:    {input_fingerprint[:12]}...")
-        print()
-        print("Vollständiger Scoring-Report:")
-        print(paths.scoring_report_path.resolve())
-        print()
-        print("Today-Auswahl:")
-        print(paths.today_report_path.resolve())
-        print()
-        print("Today-Daten für Spotify:")
-        print(paths.today_tracks_path.resolve())
+        for line in terminal_summary_lines(
+            paths=paths,
+            config=config,
+            candidate_count=len(candidates),
+            max_play_count=max_play_count,
+            max_days_since=max_days_since,
+            today_count=len(today_rows),
+        ):
+            print(line)
 
     finally:
         conn.close()
