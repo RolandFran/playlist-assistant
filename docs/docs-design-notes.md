@@ -264,11 +264,13 @@ Diese Punkte sind noch nicht final entschieden und werden später ergänzt:
 - `Max. Play-Count` wird als `Höchste Wiedergabezahl` ausgegeben.
 - Technische interne Feldnamen bleiben unverändert; nur die Benutzer-/Konsolenausgabe wird verständlicher formuliert.
 
-## ADR-021 – Benutzergewichtungen auf 1–100-Skala
+## ADR-021 – Benutzergewichtungen auf 0–100-Skala
 **Status:** beschlossen
 
-- Rare- und Long-Gewichtung werden in Konfiguration und UI als Ganzzahlen auf einer 1–100-Skala dargestellt.
+- Rare- und Long-Gewichtung werden in Konfiguration und UI als Ganzzahlen auf einer 0–100-Skala dargestellt.
 - Standard ist Rare `50` / Long `50`.
+- Rare und Long ergeben zusammen 100.
+- Dadurch sind auch die Extremstellungen `100 / 0` (nur Rare) und `0 / 100` (nur Long) möglich.
 - Die Scoring-Formel darf diese Werte intern auf Faktoren zwischen 0 und 1 normalisieren.
 - Die interne Normalisierung ist ein Implementierungsdetail und darf nicht dazu führen, dass Benutzer wieder Werte wie `0.50` konfigurieren müssen.
 
