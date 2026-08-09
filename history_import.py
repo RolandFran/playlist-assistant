@@ -98,7 +98,7 @@ def import_extended_history(
         return make_result(
             files_processed,
             records_read,
-            plays_inserted,
+            0,
             duplicates_skipped,
             invalid_records,
             started_at,

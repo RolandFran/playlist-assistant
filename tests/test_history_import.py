@@ -89,6 +89,7 @@ class HistoryImportTests(unittest.TestCase):
 
             self.assertFalse(result.success)
             self.assertIn("Expecting", result.error)
+            self.assertEqual(result.plays_inserted, 0)
             with closing(sqlite3.connect(database)) as conn:
                 table = conn.execute(
                     "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'history'"
