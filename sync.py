@@ -2,10 +2,10 @@ import argparse
 import logging
 import sqlite3
 
+from application_paths import add_data_dir_argument, application_paths_from_args
 from client import SpotifyClient, SpotifyClientError
 
 
-DB_PATH = "playlist_assistant.db"
 SOURCE_MARKER = "#today-source"
 SNAPSHOT_PREFIX = "playlist_snapshot:"
 
@@ -345,7 +345,10 @@ def main():
             "Normalerweise nicht noetig."
         ),
     )
+    add_data_dir_argument(parser)
     args = parser.parse_args()
+    paths = application_paths_from_args(args)
+    paths.ensure_runtime_directories()
 
     client = SpotifyClient()
 
@@ -374,7 +377,7 @@ def main():
         )
         return
 
-    with sqlite3.connect(DB_PATH) as conn:
+    with sqlite3.connect(paths.database_path) as conn:
         create_tables(conn)
 
         plan = build_sync_plan(

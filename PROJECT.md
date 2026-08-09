@@ -174,6 +174,22 @@ history_poll_minutes = 90
 
 Application settings are persisted in the existing `playlist_assistant.db` through `application_storage.py`. `long_weight` is derived as `100 - rare_weight`; it is not independently configurable or stored. `RuntimeConfig` also exposes the normalized factors used by the scoring formula.
 
+## Persistent application paths
+
+`ApplicationPaths` is the single engine-level contract for persistent runtime
+data. It owns the production `playlist_assistant.db`, `reports/`, and future
+backup output locations.
+
+The local CLI defaults to the existing project-local layout: the database and
+reports remain beside the application code. A future host can pass
+`--data-dir DIRECTORY` to `run.py` or an individual production command; then
+all production database and report output is written under that directory.
+This is a technical host handoff, not a normal user setting. Supplying a data
+directory never falls back to writes in the application-code directory.
+
+Existing local databases, reports, imports, and backups are neither moved nor
+automatically imported.
+
 ## History synchronization
 
 `collector.py` runs one synchronization pass at a time.
@@ -263,6 +279,7 @@ The German labels above are runtime output and intentionally remain unchanged. T
 - `client.py` – central Spotify/Spotipy boundary
 - `runtime.py` – scheduler-ready execution of explicit history and Today jobs
 - `application_storage.py` – SQLite boundary for application settings and serializable job status
+- `application_paths.py` – persistent data-path contract for local and hosted execution
 - `collector.py` – one Recently Played synchronization pass
 - `history_import.py` – transactional Extended Streaming History import
 - `sync.py` – source playlist and candidate synchronization

@@ -3,8 +3,10 @@ import json
 import sqlite3
 from pathlib import Path
 
+from application_paths import ApplicationPaths
 
-DB_PATH = Path("playlist_assistant.db")
+
+DB_PATH = ApplicationPaths.default().database_path
 SNAPSHOT_PREFIX = "playlist_snapshot:"
 
 
@@ -75,7 +77,8 @@ def fingerprint_state(state):
     return hashlib.sha256(payload).hexdigest()
 
 
-def get_current_input_fingerprint(db_path=DB_PATH):
+def get_current_input_fingerprint(db_path=None):
+    db_path = Path(db_path) if db_path is not None else DB_PATH
     with sqlite3.connect(db_path) as conn:
         state = build_input_state(conn)
 

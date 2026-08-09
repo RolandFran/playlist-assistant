@@ -54,6 +54,19 @@ Complete Today pipeline:
 python run.py today
 ```
 
+For a future host or another persistent installation location, pass a data
+directory. The production database and all reports for that run are then kept
+there, without writing runtime data back into the application directory:
+
+```powershell
+python run.py today --data-dir C:\playlist-assistant-data
+```
+
+Without `--data-dir`, the local CLI keeps the existing project-local
+`playlist_assistant.db` and `reports/` layout. The same technical argument is
+available on the individual `history`, `sources`, `score`, and `publish`
+commands.
+
 Spotify write access is deliberately not automatic. For an actual publish:
 
 ```powershell
@@ -66,6 +79,12 @@ Spotify export files can be imported into the production history database for in
 
 ```powershell
 python history_import.py import\Streaming_History_Audio_2025.json
+```
+
+Its explicit database path remains available for setup or recovery:
+
+```powershell
+python history_import.py import\Streaming_History_Audio_2025.json --db C:\playlist-assistant-data\playlist_assistant.db
 ```
 
 The importer accepts one or more JSON export files, validates them, and writes the whole batch transactionally. Re-importing the same export is safe: existing plays are skipped. The input files remain local and unversioned under `import/`; the importer itself is tracked production code and can later be reused by the Home Assistant app.
@@ -105,6 +124,7 @@ For `today`, `run.py` executes these steps in the order History → Sources → 
 - `scoring.py` – matching, scoring, and Today selection
 - `publish.py` – freshness check and Spotify publishing
 - `db_state.py` – state fingerprint for stale-result protection
+- `application_paths.py` – production database and report path contract
 - `PROJECT.md` – current authoritative project state
 - `docs/docs-design-notes.md` – Architecture Decision Log
 

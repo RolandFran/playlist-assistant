@@ -296,3 +296,21 @@ The following items are not final and will be completed later:
 - `application_job_status` stores a serializable last completed status for the finite `history` and `today` jobs, including failure details and the last successful completion timestamp.
 - The in-memory per-process overlap guard remains authoritative for currently running jobs. This decision adds neither a scheduler nor a distributed lock.
 - No daily Today execution time is persisted; that scheduling decision remains open.
+
+## ADR-027 – Separate persistent application data from application code paths
+**Status:** implemented
+
+- `ApplicationPaths` is the single Home-Assistant-independent contract for
+  the persistent data directory.
+- It owns the one production `playlist_assistant.db`, `reports/`, and future
+  backup outputs.
+- Local CLI compatibility is preserved by defaulting to the existing
+  project-local database and reports layout.
+- A host may pass `--data-dir DIRECTORY` to `run.py` or an individual
+  production command. Database settings, job status, collector, source sync,
+  scoring, publishing, fingerprints, and reports then use that directory.
+- An explicit data directory is never allowed to fall back to application-code
+  paths. No existing local data is moved, deleted, or automatically imported.
+- `history_import.py` remains usable with its explicit `--db` option.
+- This decision creates no second production database and adds no Home
+  Assistant imports, scheduler behavior, or packaging work.
