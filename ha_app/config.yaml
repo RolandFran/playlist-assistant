@@ -1,0 +1,19 @@
+name: Playlist Assistant
+slug: playlist_assistant
+version: "0.1.0"
+description: Safely run Playlist Assistant's existing scheduler on Home Assistant.
+url: https://github.com/RolandFran/playlist-assistant
+startup: application
+init: false
+arch:
+  - aarch64
+  - amd64
+  - armv7
+  - i386
+watchdog: http://[HOST]:8099/health
+options:
+  spotify_client_id: ""
+  spotify_client_secret: ""
+schema:
+  spotify_client_id: str
+  spotify_client_secret: password

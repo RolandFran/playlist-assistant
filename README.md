@@ -20,6 +20,17 @@ Currently included:
 - stale-result protection before publishing
 - private publishing of the `Today` target playlist
 - central CLI entry point: `run.py`
+- documented Home Assistant app runtime foundation in `ha_app/`
+
+## Home Assistant app runtime foundation
+
+`ha_app/` is a custom Home Assistant app package. It uses `startup:
+application`, keeps all engine persistence under `/data`, and starts a small
+service that calls the existing scheduler policy once per minute. It does not
+access `/config`, Node-RED, host devices, dashboards, automations, or existing
+Home Assistant configuration. See [ha_app/README.md](ha_app/README.md) for
+installation/testing guidance, the two Spotify configuration options, logs,
+health checking, `/data`, and intentionally deferred authorization/UI work.
 
 ## Prerequisites
 

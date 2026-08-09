@@ -200,6 +200,15 @@ automatically imported.
 
 `scheduler.py` provides a Home-Assistant-independent, explicitly invoked scheduler policy. It does not run a daemon, permanent process loop, or host service. Its persisted scheduler state is separate from manual job status, so only scheduled attempts affect cadence decisions. Default policy: History is due every 90 minutes; Today is enabled and due once per local day at 04:00. An overdue job is caught up once after restart. Failed scheduled History and Today attempts wait for their next normal interval or daily slot rather than retrying tightly. Scheduled Today calls the existing Today pipeline with `write=True`; manual CLI semantics remain unchanged.
 
+The `ha_app/` package is the first host runtime foundation. Its small service
+host invokes this existing policy once per minute and does not duplicate
+scheduler or Spotify pipeline logic. It uses `--data-dir /data`, starts with
+Home Assistant's `startup: application` behavior, supplies a watchdog-only
+health endpoint, and remains running in a visible `not_connected` state until
+an existing Spotify authorization cache is available. No browser authorization,
+Ingress UI, Home Assistant configuration access, Node-RED dependency, or
+second database is included in this foundation.
+
 The configured target cadence for future scheduling is:
 
 - history polling every **90 minutes** by default

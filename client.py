@@ -155,8 +155,8 @@ class SpotifyClient:
         self,
         *,
         scope: str = DEFAULT_SCOPE,
-        cache_path: str = DEFAULT_CACHE_PATH,
-        open_browser: bool = True,
+        cache_path: str | None = None,
+        open_browser: bool | None = None,
     ):
         load_dotenv()
 
@@ -172,6 +172,15 @@ class SpotifyClient:
                 "Spotify-Zugangsdaten fehlen. "
                 "Pruefe SPOTIFY_CLIENT_ID und SPOTIFY_CLIENT_SECRET in .env."
             )
+
+        # A host may place the authorization cache in its persistent data
+        # directory. The local CLI keeps its established project-local cache
+        # unless it explicitly supplies this environment handoff.
+        cache_path = cache_path or os.getenv("SPOTIFY_CACHE_PATH", DEFAULT_CACHE_PATH)
+        if open_browser is None:
+            open_browser = os.getenv("SPOTIFY_OPEN_BROWSER", "true").lower() not in {
+                "0", "false", "no",
+            }
 
         self._auth_manager = SpotifyOAuth(
             client_id=client_id,
