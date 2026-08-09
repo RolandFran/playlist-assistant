@@ -1,7 +1,9 @@
 # Playlist Assistant – Design Notes / Architecture Decision Log
 
 Status: laufende Planungsphase  
-Zweck: Entscheidungen kompakt sammeln, bevor die dauerhafte Projektdokumentation finalisiert wird.
+Zweck: Entscheidungen kompakt sammeln und die Gründe hinter Architekturentscheidungen nachvollziehbar halten.
+
+`PROJECT.md` beschreibt den aktuell verbindlichen Projektstand. Dieses Decision Log dokumentiert Entscheidungen und darf deshalb auch historische bzw. später ersetzte ADRs enthalten.
 
 ## ADR-001 – Spotify-Zugriff zentral kapseln
 **Status:** beschlossen
@@ -48,13 +50,13 @@ Zweck: Entscheidungen kompakt sammeln, bevor die dauerhafte Projektdokumentation
 - SQLite wird erst geändert, nachdem alle für den jeweiligen konsistenten Sync benötigten Spotify-Daten erfolgreich geladen wurden.
 
 ## ADR-005 – History-Collection bedarfsgesteuert
-**Status:** beschlossen
+**Status:** ersetzt durch ADR-017
 
-- Kein permanenter 30-/60-Minuten-Collector als Default.
-- Recently Played wird unmittelbar vor der Today-Erstellung aktualisiert.
-- Zusätzlich gibt es später einen manuellen History-Sync für Diagnose, Test und Einrichtung.
+- Ursprüngliche Entscheidung: kein permanenter 30-/60-Minuten-Collector als Default.
+- Recently Played sollte unmittelbar vor der Today-Erstellung aktualisiert werden.
+- Zusätzlich war ein manueller History-Sync für Diagnose, Test und Einrichtung vorgesehen.
 - Die Pagination endet, sobald der bereits bekannte History-Checkpoint erreicht bzw. die zeitliche Lücke geschlossen ist.
-- Ein periodischer Collector wird erst ergänzt, wenn eine konkrete Funktion ihn benötigt.
+- Die spätere Entscheidung ADR-017 ergänzt einen automatischen 90-Minuten-Default und ersetzt damit den ersten Punkt dieser ADR.
 
 ## ADR-006 – Rate Limit und Development-Quota unterscheiden
 **Status:** beschlossen
@@ -117,6 +119,8 @@ Supervisor-/App-Funktionen sollen genutzt werden statt sie selbst nachzubauen:
 - Container-Ressourcenanzeige (CPU/RAM), soweit Supervisor sie bereitstellt
 - App-/Container-Hostname, soweit Supervisor ihn bereitstellt
 
+Diese Entscheidung legt die Zielplattform fest, aber noch nicht die interne HA-Schnittstelle. Ob zusätzliche Entities, Services oder eine Custom Integration benötigt werden, bleibt eine separate Architekturentscheidung.
+
 ## ADR-010 – Konfigurationsseite: Nutzeroptionen vs. Developer-Diagnose
 **Status:** beschlossen
 
@@ -148,9 +152,10 @@ Nicht als Benutzeroption:
 ## ADR-012 – Dokumentationsstrategie
 **Status:** beschlossen
 
+- `PROJECT.md` ist die aktuelle verbindliche Spezifikation des Projekts.
+- Dieses Decision Log dokumentiert Entscheidungen und deren Entwicklung; ältere ADRs werden bei Änderungen als ersetzt markiert statt still überschrieben.
 - Während der laufenden Planungsphase wird dieses Decision Log fortgeführt.
-- Die endgültige Doku wird erst konsolidiert, wenn das Grunddesign stabil ist.
-- Danach vorgesehen:
+- Später vorgesehen:
   - `README.md`
   - `AGENTS.md`
   - `docs/architecture.md`
@@ -160,12 +165,15 @@ Nicht als Benutzeroption:
 - `AGENTS.md` bleibt kurz und verbindlich; Detailwissen liegt in `docs/`.
 
 ## ADR-013 – Arbeitsaufteilung Chat / Hermes / Codex
-**Status:** beschlossen
+**Status:** beschlossen, präzisiert
 
-- Planung, Architektur und Diskussion sollen im normalen ChatGPT-Chat stattfinden.
-- Codex wird gezielt für konkrete Repository-/Implementierungsarbeit eingesetzt.
-- Hermes soll nicht unkontrolliert Codex-/Work-Kontingent für reine Projektorganisation, Kanban-Pflege oder lange Planungsgespräche verbrauchen.
-- Bevor Hermes zum zentralen Interface wird, muss die tatsächliche Provider-/Kontingent-Routing-Konfiguration eindeutig geklärt sein.
+- Planung, Architektur, Entscheidungen und Review finden primär im normalen ChatGPT-Chat statt.
+- Codex/Work wird gezielt für klar abgegrenzte Repository- und Implementierungsarbeit eingesetzt.
+- GitHub dient als Übergabepunkt zwischen Chat, Work/Codex und lokalem Projektstand.
+- Änderungen erfolgen grundsätzlich in einem eigenen Branch und werden vor dem Merge per Pull Request geprüft.
+- Hermes ist vorerst kein Standard-Orchestrator für dieses Projekt.
+- Hermes soll insbesondere kein Codex-/Work-Kontingent für reine Projektorganisation, Kanban-Pflege oder unnötige Worker-Orchestrierung verbrauchen.
+- Falls Hermes später wieder eingesetzt wird, muss vor Worker-Erstellung zuerst ein Worker-Plan mit Aufgabe, Modell und Reasoning-Level vorgelegt und freigegeben werden.
 
 ## Offene Punkte
 
@@ -178,7 +186,6 @@ Diese Punkte sind noch nicht final entschieden und werden später ergänzt:
 - Developer-Diagnoseansicht und Statussensoren
 - finale Dateistruktur (`client.py` vs. Paket `spotify/`)
 - automatische Tests und Mocking-Strategie
-
 
 ## ADR-014 – Erster Spotify-Client-Refactor
 **Status:** umgesetzt als Teststand
@@ -195,7 +202,6 @@ Diese Punkte sind noch nicht final entschieden und werden später ergänzt:
 - Alle drei Jobs loggen strukturierte Start-/End-/Fehlerereignisse.
 - Live-Test gegen Spotify steht noch aus.
 
-
 ## ADR-015 – Spotify-Playlist-Metadaten zentral normalisieren
 **Status:** umgesetzt
 
@@ -203,7 +209,6 @@ Diese Punkte sind noch nicht final entschieden und werden später ergänzt:
 - `client.py` stellt Fachmodulen dafür das interne Feld `item_total` bereit.
 - `sync.py` kennt die Spotify-spezifischen Feldnamen nicht mehr.
 - Dadurch führen API-/Spotipy-Feldänderungen nicht direkt zu unnötigen Full-Syncs.
-
 
 ## ADR-016 – Recently-Played-Gaps rückwärts schließen
 **Status:** umgesetzt als Teststand
@@ -216,20 +221,18 @@ Diese Punkte sind noch nicht final entschieden und werden später ergänzt:
 - `collector.py --recover-after <ISO-Zeitpunkt>` erlaubt einen gezielten Backfill einer bereits entstandenen Lücke.
 - Ein Recovery-Lauf darf den gespeicherten `last_played_at`-Checkpoint niemals rückwärts verschieben.
 
-
 ## ADR-017 – History-Collector: 90-Minuten-Default und Gap-Erkennung
 **Status:** beschlossen / Basis umgesetzt
 
-- Das spaetere automatische Polling-Intervall der HA-App hat einen Default von **90 Minuten**.
+- Das spätere automatische Polling-Intervall der HA-App hat einen Default von **90 Minuten**.
 - Das Intervall ist eine Benutzeroption und soll im HA-App-Dashboard bzw. in der Konfiguration feinjustierbar sein.
-- Zielbereich vorlaeufig: 15–180 Minuten.
-- Ein Sync unmittelbar vor der Today-Erstellung bleibt zusaetzlich vorgesehen.
+- Zielbereich vorläufig: 15–180 Minuten.
+- Ein Sync unmittelbar vor der Today-Erstellung bleibt zusätzlich vorgesehen.
 - Ein manueller History-Sync bleibt vorgesehen.
-- Wenn Spotify exakt eine volle Recently-Played-Seite liefert und der aelteste zurueckgegebene Play noch nach dem gespeicherten Checkpoint liegt, setzt der Collector `gap_possible=true`.
-- Eine moegliche History-Luecke wird geloggt und soll spaeter im UI sichtbar sein.
-- Vereinzelte kleine Luecken sind tolerierbar; systematische oder grosse Luecken sollen erkennbar sein.
-- Das Scheduling selbst wird erst in der HA-App implementiert; `collector.py` fuehrt weiterhin einen einzelnen Sync-Lauf aus.
-
+- Wenn Spotify exakt eine volle Recently-Played-Seite liefert und der älteste zurückgegebene Play noch nach dem gespeicherten Checkpoint liegt, setzt der Collector `gap_possible=true`.
+- Eine mögliche History-Lücke wird geloggt und soll später im UI sichtbar sein.
+- Vereinzelte kleine Lücken sind tolerierbar; systematische oder große Lücken sollen erkennbar sein.
+- Das Scheduling selbst wird erst in der HA-App implementiert; `collector.py` führt weiterhin einen einzelnen Sync-Lauf aus.
 
 ## ADR-018 – Stale-Result-Sicherung für Today
 **Status:** umgesetzt
@@ -240,7 +243,6 @@ Diese Punkte sind noch nicht final entschieden und werden später ergänzt:
 - Stimmen die Fingerabdrücke nicht überein, wird Publish vor jedem Spotify-Schreibzugriff abgebrochen.
 - Dadurch kann eine nach Source-Sync oder History-Update veraltete `today_tracks.json` nicht versehentlich veröffentlicht werden.
 - Die Prüfung basiert auf Zustand, nicht auf Dateizeitstempeln.
-
 
 ## ADR-019 – Track-Matching: Spotify-URI zuerst
 **Status:** umgesetzt und mit realem Problemfall verifiziert
@@ -261,3 +263,23 @@ Diese Punkte sind noch nicht final entschieden und werden später ergänzt:
 - `Max. Tage seit Play` wird als `Längste Hörpause` ausgegeben.
 - `Max. Play-Count` wird als `Höchste Wiedergabezahl` ausgegeben.
 - Technische interne Feldnamen bleiben unverändert; nur die Benutzer-/Konsolenausgabe wird verständlicher formuliert.
+
+## ADR-021 – Benutzergewichtungen auf 0–100-Skala
+**Status:** beschlossen
+
+- Rare- und Long-Gewichtung werden in Konfiguration und UI als Ganzzahlen auf einer 0–100-Skala dargestellt.
+- Standard ist Rare `50` / Long `50`.
+- Rare und Long ergeben zusammen 100.
+- Dadurch sind auch die Extremstellungen `100 / 0` (nur Rare) und `0 / 100` (nur Long) möglich.
+- Die Scoring-Formel darf diese Werte intern auf Faktoren zwischen 0 und 1 normalisieren.
+- Die interne Normalisierung ist ein Implementierungsdetail und darf nicht dazu führen, dass Benutzer wieder Werte wie `0.50` konfigurieren müssen.
+
+## ADR-022 – GitHub-Branch-/PR-Workflow
+**Status:** beschlossen
+
+- `main` ist der stabile, freigegebene Projektstand.
+- Änderungen werden grundsätzlich in einem separaten Branch vorgenommen.
+- Vor dem Merge nach `main` wird ein Pull Request erstellt.
+- Der Pull Request dient als Freigabepunkt: geänderte Dateien und Diff werden geprüft, bevor gemergt wird.
+- Nach einem Merge synchronisiert der lokale Arbeitsordner den freigegebenen Stand mit `git pull`.
+- Dieser Ablauf gilt sowohl für Änderungen aus dem normalen Chat als auch für spätere Work/Codex-Implementierungen.
