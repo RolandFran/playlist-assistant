@@ -3,10 +3,10 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 
+from application_paths import add_data_dir_argument, application_paths_from_args
 from client import SpotifyClient, SpotifyClientError
 
 
-DB_PATH = "playlist_assistant.db"
 DEFAULT_HISTORY_POLL_MINUTES = 90
 
 logging.basicConfig(
@@ -223,14 +223,17 @@ def main():
             "Bereits gespeicherte Plays werden nicht doppelt angelegt."
         ),
     )
+    add_data_dir_argument(parser)
     args = parser.parse_args()
+    paths = application_paths_from_args(args)
+    paths.ensure_runtime_directories()
 
     if args.recover_after:
         iso_to_unix_ms(args.recover_after)
 
     client = SpotifyClient()
 
-    with sqlite3.connect(DB_PATH) as conn:
+    with sqlite3.connect(paths.database_path) as conn:
         init_db(conn)
 
         logger.info("history_sync started")

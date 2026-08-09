@@ -10,8 +10,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Optional
 
+from application_paths import ApplicationPaths
 
-DEFAULT_DB_PATH = "playlist_assistant.db"
+
+DEFAULT_DB_PATH = ApplicationPaths.default().database_path
 
 
 @dataclass(frozen=True)

@@ -12,10 +12,11 @@ import sqlite3
 from typing import Optional
 from contextlib import contextmanager
 
+from application_paths import ApplicationPaths
 from runtime_config import RuntimeConfig
 
 
-DEFAULT_DB_PATH = Path("playlist_assistant.db")
+DEFAULT_DB_PATH = ApplicationPaths.default().database_path
 
 
 @dataclass(frozen=True)

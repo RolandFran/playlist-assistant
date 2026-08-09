@@ -6,6 +6,11 @@ import os
 import sys
 from pathlib import Path
 
+from application_paths import (
+    ApplicationPaths,
+    add_data_dir_argument,
+    application_paths_from_args,
+)
 from db_state import get_current_input_fingerprint
 
 from client import (
@@ -14,8 +19,6 @@ from client import (
     SpotifyClientError,
 )
 
-
-TODAY_JSON_PATH = Path("reports") / "today_tracks.json"
 
 TARGET_PLAYLIST_NAME = os.getenv("SPOTIFY_TARGET_PLAYLIST", "Today")
 
@@ -61,7 +64,7 @@ def load_today_tracks(path: Path):
     return payload, uris
 
 
-def validate_scoring_freshness(payload):
+def validate_scoring_freshness(payload, db_path):
     expected = payload.get("input_fingerprint")
 
     if not expected:
@@ -70,7 +73,7 @@ def validate_scoring_freshness(payload):
             "Fuehre einmal 'python scoring.py' aus."
         )
 
-    current, _state = get_current_input_fingerprint()
+    current, _state = get_current_input_fingerprint(db_path)
 
     if current != expected:
         generated_at = payload.get("generated_at", "unbekannt")
@@ -137,10 +140,12 @@ def main():
         action="store_true",
         help="Tatsaechlich nach Spotify schreiben. Ohne --write nur Dry-Run.",
     )
+    add_data_dir_argument(parser)
     args = parser.parse_args()
+    paths = application_paths_from_args(args)
 
-    payload, uris = load_today_tracks(TODAY_JSON_PATH)
-    input_fingerprint = validate_scoring_freshness(payload)
+    payload, uris = load_today_tracks(paths.today_tracks_path)
+    input_fingerprint = validate_scoring_freshness(payload, paths.database_path)
 
     print(f"Scoring-Stand:       aktuell ({input_fingerprint[:12]}...)")
 

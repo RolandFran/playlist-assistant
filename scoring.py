@@ -1,10 +1,14 @@
 import json
 import math
-import os
 import sqlite3
 import argparse
 from datetime import datetime, timezone
 
+from application_paths import (
+    ApplicationPaths,
+    add_data_dir_argument,
+    application_paths_from_args,
+)
 from db_state import build_input_state, fingerprint_state
 from runtime_config import (
     RuntimeConfig,
@@ -13,11 +17,6 @@ from runtime_config import (
     runtime_config_from_args,
 )
 
-
-DB_PATH = "playlist_assistant.db"
-OUTPUT_PATH = os.path.join("reports", "scoring_output.txt")
-TODAY_OUTPUT_PATH = os.path.join("reports", "today_output.txt")
-TODAY_JSON_PATH = os.path.join("reports", "today_tracks.json")
 
 def parse_spotify_time(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -70,12 +69,16 @@ def calculate_combined_score(
     )
 
 
-def main(config: RuntimeConfig | None = None):
+def main(
+    config: RuntimeConfig | None = None,
+    paths: ApplicationPaths | None = None,
+):
     """Run scoring with an already validated configuration."""
-    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-    config = config or get_runtime_config()
+    paths = paths or ApplicationPaths.default()
+    paths.ensure_runtime_directories()
+    config = config or get_runtime_config(paths.database_path)
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(paths.database_path)
 
     try:
         playlist_rows = conn.execute("""
@@ -358,10 +361,10 @@ def main(config: RuntimeConfig | None = None):
             f"Gewichtung:           Rare {config.rare_weight} / Long {config.long_weight}"
         )
 
-        with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
+        with paths.scoring_report_path.open("w", encoding="utf-8") as f:
             f.write("\n".join(output_lines))
 
-        with open(TODAY_OUTPUT_PATH, "w", encoding="utf-8") as f:
+        with paths.today_report_path.open("w", encoding="utf-8") as f:
             f.write("\n".join(today_lines))
 
         # Capture the exact DB input state used for this scoring run.
@@ -403,7 +406,7 @@ def main(config: RuntimeConfig | None = None):
             ],
         }
 
-        with open(TODAY_JSON_PATH, "w", encoding="utf-8") as f:
+        with paths.today_tracks_path.open("w", encoding="utf-8") as f:
             json.dump(today_payload, f, ensure_ascii=False, indent=2)
 
         print()
@@ -422,13 +425,13 @@ def main(config: RuntimeConfig | None = None):
         print(f"Input-Fingerprint:    {input_fingerprint[:12]}...")
         print()
         print("Vollständiger Scoring-Report:")
-        print(os.path.abspath(OUTPUT_PATH))
+        print(paths.scoring_report_path.resolve())
         print()
         print("Today-Auswahl:")
-        print(os.path.abspath(TODAY_OUTPUT_PATH))
+        print(paths.today_report_path.resolve())
         print()
         print("Today-Daten für Spotify:")
-        print(os.path.abspath(TODAY_JSON_PATH))
+        print(paths.today_tracks_path.resolve())
 
     finally:
         conn.close()
@@ -439,4 +442,10 @@ if __name__ == "__main__":
         description="Today-Auswahl mit optionaler Laufzeitkonfiguration berechnen."
     )
     add_runtime_config_arguments(parser)
-    main(runtime_config_from_args(parser.parse_args()))
+    add_data_dir_argument(parser)
+    args = parser.parse_args()
+    paths = application_paths_from_args(args)
+    main(
+        runtime_config_from_args(args, get_runtime_config(paths.database_path)),
+        paths,
+    )

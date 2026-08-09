@@ -4,6 +4,11 @@ import sys
 from pathlib import Path
 
 from application_storage import ApplicationStorage
+from application_paths import (
+    ApplicationPaths,
+    add_data_dir_argument,
+    application_paths_from_args,
+)
 from runtime_config import add_runtime_config_arguments, runtime_config_from_args
 from runtime import RuntimeOrchestrator
 
@@ -18,7 +23,7 @@ SCRIPTS = {
 }
 
 
-def run_script(script_name, *args):
+def run_script(script_name, *args, paths: ApplicationPaths | None = None):
     script_path = PROJECT_DIR / script_name
 
     if not script_path.exists():
@@ -29,6 +34,8 @@ def run_script(script_name, *args):
         str(script_path),
         *args,
     ]
+    if paths is not None and paths != ApplicationPaths.default():
+        command.extend(["--data-dir", str(paths.data_dir)])
 
     print()
     print("=" * 70)
@@ -50,7 +57,7 @@ def run_script(script_name, *args):
     print(f"OK: {script_name}")
 
 
-def run_history(recover_after=None):
+def run_history(recover_after=None, *, paths: ApplicationPaths | None = None):
     args = []
 
     if recover_after:
@@ -62,33 +69,38 @@ def run_history(recover_after=None):
     run_script(
         SCRIPTS["history"],
         *args,
+        paths=paths,
     )
 
 
-def run_sources(force_full=False):
+def run_sources(force_full=False, *, paths: ApplicationPaths | None = None):
     args = ["--full"] if force_full else []
 
-    run_script(
-        SCRIPTS["sources"],
-        *args,
-    )
+    run_script(SCRIPTS["sources"], *args, paths=paths)
 
 
-def run_score(config=None):
+def run_score(config=None, *, paths: ApplicationPaths | None = None):
     args = runtime_config_to_cli_args(config)
-    run_script(SCRIPTS["score"], *args)
+    run_script(SCRIPTS["score"], *args, paths=paths)
 
 
-def run_publish(write=False):
+def run_publish(write=False, *, paths: ApplicationPaths | None = None):
     args = ["--write"] if write else []
 
     run_script(
         SCRIPTS["publish"],
         *args,
+        paths=paths,
     )
 
 
-def run_today(write=False, force_full_sources=False, config=None):
+def run_today(
+    write=False,
+    force_full_sources=False,
+    config=None,
+    *,
+    paths: ApplicationPaths | None = None,
+):
     """
     Complete Today pipeline.
 
@@ -105,7 +117,7 @@ def run_today(write=False, force_full_sources=False, config=None):
     print("# Playlist Assistant - Today Pipeline")
     print()
 
-    result = create_runtime_orchestrator().run_today(
+    result = create_runtime_orchestrator(paths).run_today(
         write=write,
         force_full_sources=force_full_sources,
         config=config,
@@ -131,14 +143,15 @@ def run_today(write=False, force_full_sources=False, config=None):
     print("=" * 70)
 
 
-def create_runtime_orchestrator():
+def create_runtime_orchestrator(paths: ApplicationPaths | None = None):
     """Create the reusable orchestration boundary for explicit runtime jobs."""
+    paths = paths or ApplicationPaths.default()
     return RuntimeOrchestrator(
-        history_runner=run_history,
-        sources_runner=run_sources,
-        score_runner=run_score,
-        publish_runner=run_publish,
-        status_store=ApplicationStorage(PROJECT_DIR / "playlist_assistant.db"),
+        history_runner=lambda **kwargs: run_history(paths=paths, **kwargs),
+        sources_runner=lambda **kwargs: run_sources(paths=paths, **kwargs),
+        score_runner=lambda **kwargs: run_score(paths=paths, **kwargs),
+        publish_runner=lambda **kwargs: run_publish(paths=paths, **kwargs),
+        status_store=ApplicationStorage(paths.database_path),
     )
 
 
@@ -161,6 +174,7 @@ def build_parser():
         metavar="ISO_TIMESTAMP",
         help="Gezielter History-Recovery-Lauf ab einem ISO-Zeitpunkt.",
     )
+    add_data_dir_argument(history_parser)
 
     sources_parser = subparsers.add_parser(
         "sources",
@@ -171,12 +185,14 @@ def build_parser():
         action="store_true",
         help="Alle Sources vollstaendig neu laden.",
     )
+    add_data_dir_argument(sources_parser)
 
     score_parser = subparsers.add_parser(
         "score",
         help="Today-Auswahl neu berechnen.",
     )
     add_runtime_config_arguments(score_parser)
+    add_data_dir_argument(score_parser)
 
     publish_parser = subparsers.add_parser(
         "publish",
@@ -187,6 +203,7 @@ def build_parser():
         action="store_true",
         help="Tatsaechlich nach Spotify schreiben.",
     )
+    add_data_dir_argument(publish_parser)
 
     today_parser = subparsers.add_parser(
         "today",
@@ -200,6 +217,7 @@ def build_parser():
             "Ohne diese Option bleibt Publish ein Dry-Run."
         ),
     )
+    add_data_dir_argument(today_parser)
     add_runtime_config_arguments(today_parser)
     today_parser.add_argument(
         "--full-sources",
@@ -228,9 +246,10 @@ def runtime_config_to_cli_args(config):
 def main():
     parser = build_parser()
     args = parser.parse_args()
+    paths = application_paths_from_args(args)
 
     if args.command == "history":
-        result = create_runtime_orchestrator().run_history(
+        result = create_runtime_orchestrator(paths).run_history(
             recover_after=args.recover_after,
         )
         if not result.success:
@@ -239,16 +258,18 @@ def main():
     elif args.command == "sources":
         run_sources(
             force_full=args.full,
+            paths=paths,
         )
 
     elif args.command == "score":
         run_score(runtime_config_from_args(
-            args, ApplicationStorage(PROJECT_DIR / "playlist_assistant.db").load_runtime_config()
-        ))
+            args, ApplicationStorage(paths.database_path).load_runtime_config()
+        ), paths=paths)
 
     elif args.command == "publish":
         run_publish(
             write=args.write,
+            paths=paths,
         )
 
     elif args.command == "today":
@@ -256,8 +277,9 @@ def main():
             write=args.write,
             force_full_sources=args.full_sources,
             config=runtime_config_from_args(
-                args, ApplicationStorage(PROJECT_DIR / "playlist_assistant.db").load_runtime_config()
+                args, ApplicationStorage(paths.database_path).load_runtime_config()
             ),
+            paths=paths,
         )
 
     else:
