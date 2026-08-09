@@ -175,12 +175,15 @@ artist_min_gap = 10
 
 `collector.py` runs one synchronization pass at a time.
 
-The later Home Assistant app is currently intended to provide:
+`runtime.py` provides scheduler-ready orchestration for explicit `history` and `today` jobs. Each invocation records success or failure, start and end timestamps, duration, and the failed pipeline step when applicable. It rejects overlapping runs of the same job within one process. It does not run a daemon or schedule jobs itself.
 
-- automatic history polling every **90 minutes** by default
-- preliminary configurable range: 15–180 minutes
+The configured target cadence for future scheduling is:
+
+- history polling every **90 minutes** by default
 - an additional history sync immediately before Today generation
 - a manual history sync for diagnostics, testing, and setup
+
+The daily Today execution time remains a later app-layer configuration decision; no arbitrary clock time is hard-coded.
 
 A possible history gap should be detected and made visible in the UI later.
 
@@ -256,6 +259,7 @@ The German labels above are runtime output and intentionally remain unchanged. T
 ## File responsibilities
 
 - `client.py` – central Spotify/Spotipy boundary
+- `runtime.py` – scheduler-ready execution of explicit history and Today jobs
 - `collector.py` – one Recently Played synchronization pass
 - `sync.py` – source playlist and candidate synchronization
 - `scoring.py` – matching, scoring, and Today selection
