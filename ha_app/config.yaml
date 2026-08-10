@@ -7,6 +7,7 @@ startup: application
 init: false
 ingress: true
 ingress_port: 8098
+homeassistant_api: true
 arch:
   - aarch64
   - amd64

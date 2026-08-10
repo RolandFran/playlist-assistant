@@ -48,6 +48,11 @@ Supervisor Core API. The integration listens for that event and replaces its
 native callbacks immediately; no polling, shared Python objects, or LAN API is
 used.
 
+`homeassistant_api: true` is required so the add-on can use that authenticated
+Supervisor Core API event endpoint. It grants only the Supervisor-proxied Core
+API access needed for schedule-change events; it does not publish a host port
+or expose the private bridge outside Home Assistant's internal network.
+
 The container build can also be checked without Home Assistant from the
 repository root with `docker build -f ha_app/Dockerfile .`. This repository
 does not install or modify anything on a Home Assistant instance.
