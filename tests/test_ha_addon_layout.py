@@ -14,6 +14,17 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
         self.assertNotIn("../", dockerfile)
         self.assertIn("RUN chmod +x /app/run.sh", dockerfile)
         self.assertIn('CMD ["/app/run.sh"]', dockerfile)
+        config = (ADDON / "config.yaml").read_text(encoding="utf-8")
+        self.assertIn("ingress: true", config)
+        self.assertIn("ingress_port: 8098", config)
+        service = (ADDON / "service.py").read_text(encoding="utf-8")
+        self.assertIn("health_endpoint_started port=%d path=/health", service)
+        self.assertIn("ingress_control_panel_started port=%d path=/", service)
+        panel = (ADDON / "control_panel.py").read_text(encoding="utf-8")
+        self.assertIn("INGRESS_PORT = 8098", panel)
+        frontend = (ADDON / "ui" / "app.js").read_text(encoding="utf-8")
+        self.assertNotIn("api('/api/", frontend)
+        self.assertIn("if(!response.ok)", frontend)
         for name in (
             "requirements.txt", "service.py", "control_panel.py", "workflow.py",
             "run.py", "application_paths.py", "application_storage.py",

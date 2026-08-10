@@ -1,9 +1,11 @@
 import json
 import tempfile
 import unittest
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
 from application_paths import ApplicationPaths
-from ha_app.control_panel import ControlPanel
+from ha_app.control_panel import ControlPanel, start_ingress
 
 
 class ControlPanelTests(unittest.TestCase):
@@ -15,6 +17,11 @@ class ControlPanelTests(unittest.TestCase):
 
     def tearDown(self):
         self.directory.cleanup()
+
+    def request_ingress(self, path, *, headers=None):
+        headers = headers or {}
+        request = Request(f"http://127.0.0.1:{self.ingress.server_address[1]}{path}", headers=headers)
+        return urlopen(request)
 
     def test_state_is_secret_free_and_marks_spotify_actions_unavailable(self):
         state = self.panel.state()
@@ -38,3 +45,23 @@ class ControlPanelTests(unittest.TestCase):
     def test_spotify_actions_are_blocked_but_local_calculation_is_not_preblocked(self):
         with self.assertRaisesRegex(RuntimeError, "not connected"):
             self.panel.run_action("history")
+
+    def test_ingress_serves_a_prefixed_panel_and_json_api_responses(self):
+        self.ingress = start_ingress(self.panel, bridge_token="bridge-secret", port=0,
+                                     ingress_client_address="127.0.0.1")
+        self.addCleanup(self.ingress.server_close)
+        self.addCleanup(self.ingress.shutdown)
+
+        with self.request_ingress("/", headers={"X-Ingress-Path": "/api/hassio_ingress/example"}) as response:
+            page = response.read().decode("utf-8")
+            self.assertIn('<base href="/api/hassio_ingress/example/">', page)
+
+        with self.request_ingress("/api/state") as response:
+            self.assertEqual(response.headers.get_content_type(), "application/json")
+            self.assertIn("spotify", json.loads(response.read()))
+
+        with self.assertRaises(HTTPError) as caught:
+            self.request_ingress("/api/missing")
+        self.assertEqual(caught.exception.code, 404)
+        self.assertEqual(caught.exception.headers.get_content_type(), "application/json")
+        self.assertEqual(json.loads(caught.exception.read()), {"error": "Unknown API endpoint."})
