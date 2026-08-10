@@ -7,6 +7,12 @@ reporting. The companion `playlist_assistant` custom integration owns native
 Home Assistant scheduling, actions, and entities; the app/engine owns every
 Spotify and pipeline operation.
 
+The add-on build context is this directory only. Its dependency manifest and
+the engine modules used by `service.py` are packaged here alongside the
+Ingress files, so Supervisor builds never depend on repository-root paths.
+When engine code changes, update the matching packaged module in this
+directory as part of the same change.
+
 ## Ingress control panel
 
 Home Assistant Ingress provides the authenticated daily control panel. It
