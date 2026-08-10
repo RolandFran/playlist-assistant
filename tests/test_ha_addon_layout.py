@@ -12,6 +12,7 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
         self.assertIn("FROM ghcr.io/home-assistant/base:latest", dockerfile)
         self.assertIn("COPY requirements.txt /tmp/requirements.txt", dockerfile)
         self.assertNotIn("../", dockerfile)
+        self.assertIn("RUN chmod +x /app/run.sh", dockerfile)
         self.assertIn('CMD ["/app/run.sh"]', dockerfile)
         for name in (
             "requirements.txt", "service.py", "control_panel.py", "workflow.py",
