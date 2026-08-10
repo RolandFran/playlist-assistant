@@ -44,9 +44,19 @@ class ControlPanel:
         history = self.storage.get_job_status("history")
         today = self.storage.get_job_status("today")
         tracks = self._today_tracks()
-        available = self.spotify_available()
+        # The first Ingress request must always be JSON serializable.  Keep the
+        # service-owned callbacks at this API boundary constrained to the
+        # documented primitive values the frontend consumes.
+        available = bool(self.spotify_available())
+        pairing_state = "connected"
+        if not available:
+            candidate = self.pairing_state()
+            if candidate not in {"not_connected", "awaiting_import", "expired"}:
+                LOGGER.warning("invalid_pairing_state state_type=%s", type(candidate).__name__)
+                candidate = "not_connected"
+            pairing_state = candidate
         return {
-            "spotify": {"state": "connected" if available else self.pairing_state(), "available": available},
+            "spotify": {"state": pairing_state, "available": available},
             "settings": {**config.__dict__, "long_weight": config.long_weight, "target_playlist_name": target_name},
             "target_playlist_id": target_id,
             "jobs": {"history": history.to_dict() if history else None, "today": today.to_dict() if today else None},
