@@ -5,6 +5,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from spotify_pairing import encrypt_import, validate_pairing_document
 
+LOOPBACK_HOST = '127.0.0.1'
+LOOPBACK_PORT = 8888
+LOOPBACK_REDIRECT = 'http://127.0.0.1:8888/callback'
+
 def pkce_challenge(verifier: str) -> str:
     return base64.urlsafe_b64encode(hashlib.sha256(verifier.encode('ascii')).digest()).decode('ascii').rstrip('=')
 
@@ -28,6 +32,14 @@ def exchange_code(pairing, code, redirect_uri, verifier):
     if not isinstance(token,str) or not token: raise RuntimeError('Spotify did not provide a refresh token.')
     return token, result.get('scope') if isinstance(result.get('scope'),str) else None
 
+def create_listener(handler):
+    try: return ThreadingHTTPServer((LOOPBACK_HOST, LOOPBACK_PORT), handler)
+    except OSError as error: raise RuntimeError('Port 8888 on 127.0.0.1 is unavailable. Close the application using it and try again.') from error
+
+def authorization_url(pairing, state, verifier):
+    query=urllib.parse.urlencode({'response_type':'code','client_id':pairing['spotify_client_id'],'redirect_uri':LOOPBACK_REDIRECT,'scope':pairing['spotify_scopes'],'state':state,'code_challenge_method':'S256','code_challenge':pkce_challenge(verifier)})
+    return 'https://accounts.spotify.com/authorize?'+query
+
 def run(pairing_path: Path, output_path: Path, timeout: int=300):
     try: pairing=validate_pairing_document(json.loads(pairing_path.read_text(encoding='utf-8')))
     except (OSError,json.JSONDecodeError,ValueError) as error: raise ValueError('The pairing file is invalid or expired.') from error
@@ -38,12 +50,10 @@ def run(pairing_path: Path, output_path: Path, timeout: int=300):
             except Exception as error: received['error']=error; body=b'<p>Spotify login failed. Return to the terminal.</p>'
             self.send_response(200); self.send_header('Content-Type','text/html; charset=utf-8'); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body); done.set()
         def log_message(self,*_): pass
-    server=ThreadingHTTPServer(('127.0.0.1',0),Callback)
-    port=server.server_address[1]; redirect=f'http://127.0.0.1:{port}/callback'
+    server=create_listener(Callback); redirect=LOOPBACK_REDIRECT
     thread=threading.Thread(target=server.serve_forever,daemon=True); thread.start()
-    query=urllib.parse.urlencode({'response_type':'code','client_id':pairing['spotify_client_id'],'redirect_uri':redirect,'scope':pairing['spotify_scopes'],'state':state,'code_challenge_method':'S256','code_challenge':pkce_challenge(verifier)})
     try:
-        if not webbrowser.open('https://accounts.spotify.com/authorize?'+query): print('Open the Spotify authorization page in your browser.',file=sys.stderr)
+        if not webbrowser.open(authorization_url(pairing,state,verifier)): print('Open the Spotify authorization page in your browser.',file=sys.stderr)
         if not done.wait(timeout): raise RuntimeError('Spotify login timed out.')
         if 'error' in received: raise received['error']
         refresh,scopes=exchange_code(pairing,received['code'],redirect,verifier)

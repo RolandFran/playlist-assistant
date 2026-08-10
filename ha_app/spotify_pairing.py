@@ -6,7 +6,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-PROTOCOL_VERSION=1; PAIRING_LIFETIME=timedelta(minutes=10); MAX_IMPORT_BYTES=64*1024
+PROTOCOL_VERSION=1; PAIRING_LIFETIME=timedelta(minutes=10); MAX_IMPORT_BYTES=64*1024; LOOPBACK_REDIRECT='http://127.0.0.1:8888/callback'
 def _b64(v): return base64.urlsafe_b64encode(v).decode('ascii').rstrip('=')
 def _unb64(v, length=None):
     if not isinstance(v,str) or not v or len(v)>1024: raise ValueError('Invalid encoded cryptographic value.')
@@ -31,7 +31,7 @@ class PairingSession:
     @property
     def expired(self): return utc_now()>=self.expires_at
     def public_document(self):
-        return {'version':PROTOCOL_VERSION,'session_id':self.session_id,'expires_at':encode_time(self.expires_at),'public_key':_b64(self.private_key.public_key().public_bytes_raw()),'transfer_secret':self.transfer_secret,'spotify_client_id':self.client_id,'spotify_scopes':self.scopes,'loopback_redirect':'http://127.0.0.1/callback'}
+        return {'version':PROTOCOL_VERSION,'session_id':self.session_id,'expires_at':encode_time(self.expires_at),'public_key':_b64(self.private_key.public_key().public_bytes_raw()),'transfer_secret':self.transfer_secret,'spotify_client_id':self.client_id,'spotify_scopes':self.scopes,'loopback_redirect':LOOPBACK_REDIRECT}
     def decrypt_import(self,document):
         if not isinstance(document,dict) or document.get('version')!=PROTOCOL_VERSION: raise ValueError('Unsupported token import format.')
         if not secrets.compare_digest(str(document.get('session_id','')),self.session_id): raise ValueError('The token import belongs to another pairing session.')
@@ -45,7 +45,7 @@ class PairingSession:
 def validate_pairing_document(d):
     fields={'version','session_id','expires_at','public_key','transfer_secret','spotify_client_id','spotify_scopes','loopback_redirect'}
     if not isinstance(d,dict) or set(d)!=fields: raise ValueError('Invalid pairing file.')
-    if d['version']!=PROTOCOL_VERSION or d['loopback_redirect']!='http://127.0.0.1/callback': raise ValueError('Unsupported pairing file.')
+    if d['version']!=PROTOCOL_VERSION or d['loopback_redirect']!=LOOPBACK_REDIRECT: raise ValueError('Unsupported pairing file.')
     if any(not isinstance(d[k],str) or not d[k] or len(d[k])>512 for k in ('session_id','transfer_secret','spotify_client_id','spotify_scopes')): raise ValueError('Invalid pairing file.')
     _unb64(d['public_key'],32)
     if parse_time(d['expires_at'])<=utc_now(): raise ValueError('The pairing file has expired.')

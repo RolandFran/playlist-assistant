@@ -95,13 +95,13 @@ does not poll or schedule pipeline work itself.
 
 No public address, port forwarding, Nabu Casa, DuckDNS, or reverse proxy is required.
 
-1. In the Spotify Developer Dashboard register `http://127.0.0.1/callback` as a redirect URI.
+1. In the Spotify Developer Dashboard register exactly `http://127.0.0.1:8888/callback` as a redirect URI.
 2. In authenticated Ingress choose **Prepare Windows login** and save `playlist-assistant-pairing.json`.
 3. On Windows run `python tools/spotify_local_login.py --pairing playlist-assistant-pairing.json` from this project.
 4. Upload the resulting encrypted `spotify-token-import.json` in Ingress within ten minutes.
 5. After Connected is displayed, Windows is no longer needed.
 
-The pairing private key and secret exist only in add-on memory; a restart invalidates them. The Windows tool listens only on `127.0.0.1`, uses Authorization Code with PKCE, and never receives the client secret. The import uses X25519, HKDF-SHA256, and AES-256-GCM. Tokens, authorization codes, PKCE values, and pairing secrets are never returned by status APIs or logged. Starting a new pairing replaces the old one; deleting the OAuth cache requires a new pairing.
+The pairing private key and secret exist only in add-on memory; a restart invalidates them. The Windows tool listens only on `127.0.0.1:8888`; this fixed port must be free and no alternative host or port is used. It uses Authorization Code with PKCE and never receives the client secret. The import uses X25519, HKDF-SHA256, and AES-256-GCM. Tokens, authorization codes, PKCE values, and pairing secrets are never returned by status APIs or logged. Starting a new pairing replaces the old one; deleting the OAuth cache requires a new pairing.
 
 ## Persistent data, logs, and health
 
