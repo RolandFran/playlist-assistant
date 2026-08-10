@@ -28,8 +28,8 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
         self.assertIn("target_playlist_name", frontend)
         self.assertIn("today_schedule_enabled", frontend)
         self.assertIn("aria-readonly", frontend)
-        self.assertIn("protocol==='https:'", frontend)
-        self.assertIn("connect.disabled=!secure", frontend)
+        self.assertIn("api/spotify/pairing-file", frontend)
+        self.assertIn("api/spotify/import", frontend)
         panel = (ADDON / "ui" / "index.html").read_text(encoding="utf-8")
         self.assertIn('data-i18n="playlist_preview"', panel)
         self.assertNotIn('data-i18n="today"', panel)
@@ -38,5 +38,6 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
             "run.py", "application_paths.py", "application_storage.py",
             "runtime.py", "runtime_config.py", "db_state.py", "collector.py",
             "sync.py", "scoring.py", "publish.py", "client.py",
+            "spotify_pairing.py",
         ):
             self.assertTrue((ADDON / name).is_file(), name)

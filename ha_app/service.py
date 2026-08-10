@@ -6,15 +6,13 @@ import argparse
 import json
 import logging
 import os
-import secrets
+import tempfile
 import urllib.request
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Event, Thread
 from typing import Callable, Mapping
-from urllib.parse import parse_qs, urlparse
-
 from spotipy.oauth2 import SpotifyOAuth
 
 from application_paths import ApplicationPaths
@@ -24,6 +22,7 @@ try:  # Direct execution inside the add-on image.
 except ModuleNotFoundError:  # Repository imports used by local tests.
     from ha_app.control_panel import ControlPanel, start_ingress
 from run import create_runtime_orchestrator
+from spotify_pairing import PairingSession
 
 LOGGER = logging.getLogger("playlist_assistant.ha_app")
 DEFAULT_TICK_SECONDS = 60
@@ -79,59 +78,43 @@ def has_usable_authorization(cache_path: Path) -> bool:
     return isinstance(payload, dict) and bool(payload.get("access_token") or payload.get("refresh_token"))
 
 
-class SpotifyAuthorization:
-    """One browser OAuth exchange for the currently authenticated Ingress user."""
-
+class SpotifyPairing:
+    """Owns one in-memory encrypted token import session."""
     def __init__(self, options: AppOptions, cache_path: Path, on_connected: Callable[[], None]):
-        self._options = options
-        self._cache_path = cache_path
-        self._on_connected = on_connected
-        self._state: str | None = None
-        self._callback_uri: str | None = None
-
-    def start(self, callback_uri: str) -> dict:
-        parsed = urlparse(callback_uri)
-        if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
-            raise ValueError("Spotify authorization requires an HTTPS Ingress callback URL.")
-        self._state = secrets.token_urlsafe(32)
-        self._callback_uri = callback_uri
-        manager = self._manager(callback_uri)
-        LOGGER.info("spotify_authorization_started")
-        return {"authorization_url": manager.get_authorize_url(state=self._state), "callback_uri": callback_uri}
-
-    def complete(self, query: str) -> str:
-        values = parse_qs(query)
-        if values.get("state", [None])[0] != self._state or not self._callback_uri:
-            LOGGER.warning("spotify_authorization_failed reason=invalid_state")
-            raise ValueError("Spotify authorization could not be verified. Please start again.")
-        callback_uri = self._callback_uri
-        self._state = None
-        self._callback_uri = None
-        if values.get("error"):
-            LOGGER.warning("spotify_authorization_failed reason=provider_denied")
-            raise RuntimeError("Spotify authorization was cancelled or denied.")
-        code = values.get("code", [None])[0]
-        if not code:
-            LOGGER.warning("spotify_authorization_failed reason=missing_code")
-            raise ValueError("Spotify did not return an authorization code.")
+        self._options, self._cache_path, self._on_connected = options, cache_path, on_connected
+        self._session: PairingSession | None = None
+    def prepare(self) -> dict:
+        self._session = PairingSession(self._options.spotify_client_id, SPOTIFY_SCOPE)
+        LOGGER.info("spotify_pairing_prepared")
+        return self._session.public_document()
+    def state(self) -> str:
+        if self._session is None: return "not_connected"
+        if self._session.expired:
+            self._session = None; return "expired"
+        return "awaiting_import"
+    def import_document(self, document: dict) -> None:
+        session = self._session
+        if session is None: raise ValueError("No active pairing session exists.")
+        payload = session.decrypt_import(document)
         try:
-            self._manager(callback_uri).get_access_token(code, check_cache=False)
+            token = SpotifyOAuth(client_id=self._options.spotify_client_id, client_secret=self._options.spotify_client_secret,
+                redirect_uri="http://127.0.0.1/callback", scope=SPOTIFY_SCOPE, open_browser=False).refresh_access_token(payload["refresh_token"])
+            if not isinstance(token, dict) or not token.get("access_token"): raise RuntimeError("invalid Spotify response")
+            token["refresh_token"] = payload["refresh_token"]
+            self._write_cache(token)
         except Exception as error:
-            LOGGER.warning("spotify_authorization_failed error_type=%s", type(error).__name__)
-            raise RuntimeError("Spotify authorization failed. Check the redirect URI and try again.") from error
+            LOGGER.warning("spotify_token_import_failed error_type=%s", type(error).__name__)
+            raise RuntimeError("Spotify could not verify the imported connection.") from error
+        self._session = None
         self._on_connected()
-        LOGGER.info("spotify_authorization_completed")
-        return "Spotify is connected. Returning to Playlist Assistant…"
-
-    def _manager(self, redirect_uri: str) -> SpotifyOAuth:
-        return SpotifyOAuth(
-            client_id=self._options.spotify_client_id,
-            client_secret=self._options.spotify_client_secret,
-            redirect_uri=redirect_uri,
-            scope=SPOTIFY_SCOPE,
-            cache_path=str(self._cache_path),
-            open_browser=False,
-        )
+        LOGGER.info("spotify_token_imported")
+    def _write_cache(self, token: dict) -> None:
+        self._cache_path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=self._cache_path.parent, prefix=".spotify-oauth-", delete=False) as file:
+            temp_path = Path(file.name); os.chmod(file.name, 0o600); json.dump(token, file); file.write("\n")
+        try: os.replace(temp_path, self._cache_path)
+        finally:
+            if temp_path.exists(): temp_path.unlink(missing_ok=True)
 
 
 class ServiceHost:
@@ -183,12 +166,12 @@ class ServiceHost:
         stop_event = stop_event or Event()
         LOGGER.info("service_started tick_seconds=%d data_dir=%s", self.tick_seconds, self.paths.data_dir)
         health_server = _start_health_server(lambda: self._connected)
-        authorization = SpotifyAuthorization(self.options, self.authorization_cache_path, self._mark_connected)
+        pairing = SpotifyPairing(self.options, self.authorization_cache_path, self._mark_connected)
         ingress_server = start_ingress(
             ControlPanel(self.paths, spotify_available=lambda: self._connected,
                          schedule_changed=self._notify_schedule_changed,
-                         authorization_start=authorization.start,
-                         authorization_callback=authorization.complete),
+                         pairing_prepare=pairing.prepare, pairing_state=pairing.state,
+                         pairing_import=pairing.import_document),
             bridge_token=self.options.bridge_token,
         )
         LOGGER.info("ingress_control_panel_started port=%d path=/", ingress_server.server_address[1])
