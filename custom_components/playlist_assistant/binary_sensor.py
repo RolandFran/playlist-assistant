@@ -12,6 +12,7 @@ class HistoryGap(BinarySensorEntity):
     def __init__(self, hass, entry): self._bridge = hass.data[DOMAIN][entry.entry_id]["bridge"]
     @property
     def is_on(self):
-        details = self._bridge.status()
-        last = details.get("last_history_success")
-        return history_gap(datetime.fromisoformat(last) if last else None, details["history_interval_minutes"], datetime.now().astimezone())
+        details = self._bridge.data
+        last = details.get("jobs", {}).get("history", {}).get("last_success_at")
+        interval = details.get("schedule", {}).get("history_interval_minutes", 90)
+        return history_gap(datetime.fromisoformat(last) if last else None, interval, datetime.now().astimezone())

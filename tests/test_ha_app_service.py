@@ -10,7 +10,7 @@ class HomeAssistantServiceTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.paths = ApplicationPaths.from_data_dir(self.directory.name)
-        self.options = AppOptions("client-id", "client-secret")
+        self.options = AppOptions("client-id", "client-secret", "bridge-secret")
         self.service = ServiceHost(paths=self.paths, options=self.options)
 
     def tearDown(self):

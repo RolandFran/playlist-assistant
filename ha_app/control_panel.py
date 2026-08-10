@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hmac
 import sqlite3
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -92,10 +93,16 @@ class ControlPanel:
                 pass
         return [{key: item.get(key) for key in ("track_name", "artist_name", "combined_score", "play_count")} | {"last_played": last_played.get(item.get("track_uri"))} for item in tracks]
 
-def start_ingress(panel: ControlPanel) -> ThreadingHTTPServer:
+def start_ingress(panel: ControlPanel, *, bridge_token: str) -> ThreadingHTTPServer:
     class Handler(BaseHTTPRequestHandler):
         def _allow_ingress(self):
             if self.client_address[0] != "172.30.32.2":
+                self.send_error(HTTPStatus.FORBIDDEN)
+                return False
+            return True
+        def _allow_bridge(self):
+            supplied = self.headers.get("X-Playlist-Assistant-Bridge", "")
+            if not hmac.compare_digest(supplied, bridge_token):
                 self.send_error(HTTPStatus.FORBIDDEN)
                 return False
             return True
@@ -103,6 +110,9 @@ def start_ingress(panel: ControlPanel) -> ThreadingHTTPServer:
             data = json.dumps(value).encode("utf-8")
             self.send_response(status); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
         def do_GET(self):  # noqa: N802
+            if self.path == "/bridge/state":
+                if self._allow_bridge(): self._json(200, panel.state())
+                return
             if not self._allow_ingress(): return
             if self.path.startswith("/api/state"):
                 return self._json(200, panel.state())
@@ -115,6 +125,10 @@ def start_ingress(panel: ControlPanel) -> ThreadingHTTPServer:
             if self.path == "/app.css": return self._file("app.css", "text/css")
             self.send_error(404)
         def do_POST(self):  # noqa: N802
+            if self.path.startswith("/bridge/actions/"):
+                if not self._allow_bridge(): return
+                try: return self._json(200, panel.run_action(self.path.rsplit("/", 1)[-1]))
+                except (ValueError, RuntimeError) as error: return self._json(400, {"error": str(error)})
             if not self._allow_ingress(): return
             try:
                 size = int(self.headers.get("Content-Length", "0")); data = json.loads(self.rfile.read(size) or b"{}")

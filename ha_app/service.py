@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 import os
+import urllib.request
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -30,12 +31,14 @@ class AppOptions:
 
     spotify_client_id: str
     spotify_client_secret: str
+    bridge_token: str = ""
 
     @classmethod
     def from_mapping(cls, values: Mapping[str, object]) -> "AppOptions":
         return cls(
             spotify_client_id=_required_option(values, "spotify_client_id"),
             spotify_client_secret=_required_option(values, "spotify_client_secret"),
+            bridge_token=_required_option(values, "bridge_token"),
         )
 
 
@@ -115,7 +118,9 @@ class ServiceHost:
         LOGGER.info("service_started tick_seconds=%d data_dir=%s", self.tick_seconds, self.paths.data_dir)
         health_server = _start_health_server(lambda: self._connected)
         ingress_server = start_ingress(
-            ControlPanel(self.paths, spotify_available=lambda: self._connected)
+            ControlPanel(self.paths, spotify_available=lambda: self._connected,
+                         schedule_changed=self._notify_schedule_changed),
+            bridge_token=self.options.bridge_token,
         )
         try:
             self.tick()
@@ -126,6 +131,22 @@ class ServiceHost:
             ingress_server.shutdown()
             ingress_server.server_close()
             LOGGER.info("service_stopped")
+
+    def _notify_schedule_changed(self, config) -> None:
+        """Tell HA Core to replace native callbacks; no browser/LAN path."""
+        token = os.getenv("SUPERVISOR_TOKEN")
+        if not token:
+            LOGGER.warning("schedule_change_not_sent supervisor token unavailable")
+            return
+        data = json.dumps({"history_interval_minutes": config.history_poll_minutes,
+                           "daily_enabled": config.today_schedule_enabled,
+                           "daily_time": config.today_schedule_time}).encode()
+        request = urllib.request.Request("http://supervisor/core/api/events/playlist_assistant_schedule_changed", data=data,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"}, method="POST")
+        try:
+            urllib.request.urlopen(request, timeout=5).close()
+        except OSError:
+            LOGGER.exception("schedule_change_notification_failed")
 
 
 def _start_health_server(connected: Callable[[], bool]) -> ThreadingHTTPServer:

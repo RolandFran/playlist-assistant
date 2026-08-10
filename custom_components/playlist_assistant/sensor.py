@@ -12,10 +12,10 @@ class PlaylistStatus(_BridgeEntity):
     _attr_name = "Playlist Assistant status"
     _attr_unique_id = "playlist_assistant_status"
     @property
-    def native_value(self): return self._bridge.status().get("state", "idle")
+    def native_value(self): return self._bridge.data.get("preview", {}).get("state", "idle")
 
 class PlaylistConnection(_BridgeEntity):
     _attr_name = "Playlist Assistant connection"
     _attr_unique_id = "playlist_assistant_connection"
     @property
-    def native_value(self): return self._bridge.status().get("connection", "not_connected")
+    def native_value(self): return self._bridge.data.get("spotify", {}).get("state", "not_connected")

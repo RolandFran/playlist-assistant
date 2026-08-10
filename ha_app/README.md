@@ -32,6 +32,22 @@ custom-repository flow, then install **Playlist Assistant**. The package has
 no `/config`, Node-RED, host-device, dashboard, automation, or integration
 dependency.
 
+## Home Assistant integration
+
+Copy `custom_components/playlist_assistant/` from this repository to
+`/config/custom_components/playlist_assistant/`, restart Home Assistant, then
+add **Playlist Assistant** from Settings → Devices & services. Enter the
+add-on's internal URL (`http://playlist_assistant:8098`) and the same
+`bridge_token` configured in the add-on options. The URL is Docker-network
+internal and the add-on publishes no host port. The token is used only in the
+`X-Playlist-Assistant-Bridge` header and never exposes Spotify credentials or
+OAuth cache data.
+
+The add-on sends schedule-change events to HA Core through the authenticated
+Supervisor Core API. The integration listens for that event and replaces its
+native callbacks immediately; no polling, shared Python objects, or LAN API is
+used.
+
 The container build can also be checked without Home Assistant from the
 repository root with `docker build -f ha_app/Dockerfile .`. This repository
 does not install or modify anything on a Home Assistant instance.
