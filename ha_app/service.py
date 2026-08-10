@@ -22,7 +22,7 @@ try:  # Direct execution inside the add-on image.
 except ModuleNotFoundError:  # Repository imports used by local tests.
     from ha_app.control_panel import ControlPanel, start_ingress
 from run import create_runtime_orchestrator
-from spotify_pairing import PairingSession
+from spotify_pairing import LOOPBACK_REDIRECT, PairingSession
 
 LOGGER = logging.getLogger("playlist_assistant.ha_app")
 DEFAULT_TICK_SECONDS = 60
@@ -98,7 +98,7 @@ class SpotifyPairing:
         payload = session.decrypt_import(document)
         try:
             token = SpotifyOAuth(client_id=self._options.spotify_client_id, client_secret=self._options.spotify_client_secret,
-                redirect_uri="http://127.0.0.1/callback", scope=SPOTIFY_SCOPE, open_browser=False).refresh_access_token(payload["refresh_token"])
+                redirect_uri=LOOPBACK_REDIRECT, scope=SPOTIFY_SCOPE, open_browser=False).refresh_access_token(payload["refresh_token"])
             if not isinstance(token, dict) or not token.get("access_token"): raise RuntimeError("invalid Spotify response")
             token["refresh_token"] = payload["refresh_token"]
             self._write_cache(token)
