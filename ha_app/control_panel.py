@@ -28,14 +28,15 @@ class ControlPanel:
     """Read and change only persistent app state under the selected data path."""
 
     def __init__(self, paths: ApplicationPaths, *, spotify_available: Callable[[], bool], workflow=None,
-                 schedule_changed=None, authorization_start=None, authorization_callback=None):
+                 schedule_changed=None, pairing_prepare=None, pairing_state=None, pairing_import=None):
         self.paths = paths
         self.storage = ApplicationStorage(paths.database_path)
         self.spotify_available = spotify_available
         self.workflow = workflow or PlaylistWorkflow(paths, storage=self.storage)
         self.schedule_changed = schedule_changed or (lambda _config: None)
-        self.authorization_start = authorization_start
-        self.authorization_callback = authorization_callback
+        self.pairing_prepare = pairing_prepare
+        self.pairing_state = pairing_state or (lambda: "not_connected")
+        self.pairing_import = pairing_import
 
     def state(self) -> dict:
         config = self.storage.load_runtime_config()
@@ -45,7 +46,7 @@ class ControlPanel:
         tracks = self._today_tracks()
         available = self.spotify_available()
         return {
-            "spotify": {"state": "connected" if available else "not_connected", "available": available},
+            "spotify": {"state": "connected" if available else self.pairing_state(), "available": available},
             "settings": {**config.__dict__, "long_weight": config.long_weight, "target_playlist_name": target_name},
             "target_playlist_id": target_id,
             "jobs": {"history": history.to_dict() if history else None, "today": today.to_dict() if today else None},
@@ -75,15 +76,13 @@ class ControlPanel:
         LOGGER.info("settings_saved")
         return self.state()
 
-    def start_authorization(self, callback_uri: str) -> dict:
-        if self.authorization_start is None:
-            raise RuntimeError("Spotify authorization is unavailable.")
-        return self.authorization_start(callback_uri)
-
-    def complete_authorization(self, query: str) -> str:
-        if self.authorization_callback is None:
-            raise RuntimeError("Spotify authorization is unavailable.")
-        return self.authorization_callback(query)
+    def prepare_pairing(self) -> dict:
+        if self.pairing_prepare is None: raise RuntimeError("Spotify pairing is unavailable.")
+        return self.pairing_prepare()
+    def import_spotify_token(self, data: dict) -> dict:
+        if self.pairing_import is None: raise RuntimeError("Spotify pairing is unavailable.")
+        self.pairing_import(data)
+        return self.state()
 
     def run_action(self, action: str) -> dict:
         if not self.spotify_available():
@@ -149,16 +148,17 @@ def start_ingress(panel: ControlPanel, *, bridge_token: str, port: int = INGRESS
             if not self._allow_ingress(api=path.startswith("/api/")): return
             if path == "/api/state":
                 return self._json(200, panel.state())
+            if path == "/api/spotify/pairing-file":
+                try:
+                    data = json.dumps(panel.prepare_pairing(), separators=(",", ":")).encode("utf-8")
+                    self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Disposition", 'attachment; filename="playlist-assistant-pairing.json"'); self.send_header("Cache-Control", "no-store"); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
+                except RuntimeError as error: self._api_error(HTTPStatus.BAD_REQUEST, str(error))
+                return
             if path in ("/api/i18n/de", "/api/i18n/en"):
                 lang = path.rsplit("/", 1)[-1]
                 return self._json(200, json.loads((APP_DIR / "ui" / "i18n" / f"{lang}.json").read_text(encoding="utf-8")))
             if path.startswith("/api/"):
                 return self._api_error(HTTPStatus.NOT_FOUND, "Unknown API endpoint.")
-            if path == "/spotify/callback":
-                try:
-                    return self._authorization_result(panel.complete_authorization(urlsplit(self.path).query), self._ingress_base_path())
-                except (ValueError, RuntimeError) as error:
-                    return self._authorization_result(str(error), self._ingress_base_path(), success=False)
             if path == "/":
                 return self._file("index.html", "text/html; charset=utf-8", ingress_base_path=self._ingress_base_path())
             if path == "/app.js": return self._file("app.js", "application/javascript; charset=utf-8")
@@ -172,25 +172,19 @@ def start_ingress(panel: ControlPanel, *, bridge_token: str, port: int = INGRESS
                 except (ValueError, RuntimeError) as error: return self._json(400, {"error": str(error)})
             if not self._allow_ingress(api=path.startswith("/api/")): return
             try:
-                size = int(self.headers.get("Content-Length", "0")); data = json.loads(self.rfile.read(size) or b"{}")
+                size = int(self.headers.get("Content-Length", "0"))
+                if size < 1 or size > 64 * 1024: raise ValueError("Invalid upload size.")
+                data = json.loads(self.rfile.read(size) or b"{}")
                 if not isinstance(data, dict):
                     raise ValueError("JSON request body must be an object.")
                 if path == "/api/settings":
                     return self._json(200, {"ok": True, "message": "Settings saved.", "state": panel.save_settings(data)})
-                if path == "/api/spotify/authorize":
-                    return self._json(200, panel.start_authorization(str(data.get("callback_uri", ""))))
+                if path == "/api/spotify/import": return self._json(200, {"ok": True, "state": panel.import_spotify_token(data)})
                 if path.startswith("/api/actions/"): return self._json(200, panel.run_action(path.rsplit("/", 1)[-1]))
                 if path.startswith("/api/"): return self._api_error(HTTPStatus.NOT_FOUND, "Unknown API endpoint.")
                 self.send_error(404)
             except (ValueError, RuntimeError) as error:
                 self._json(400, {"error": str(error)})
-        def _authorization_result(self, message, ingress_base_path, *, success=True):
-            marker = "connected" if success else "failed"
-            destination = ingress_base_path + "?spotify=" + marker
-            body = ("<!doctype html><meta charset=\"utf-8\"><title>Playlist Assistant</title>"
-                    f"<p>{message}</p><p><a href=\"{destination}\">Return to Playlist Assistant</a></p>"
-                    f"<script>location.replace({json.dumps(destination)})</script>").encode("utf-8")
-            self.send_response(HTTPStatus.OK); self.send_header("Content-Type", "text/html; charset=utf-8"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         def _file(self, name, content_type, ingress_base_path=None):
             data = (APP_DIR / "ui" / name).read_bytes()
             if ingress_base_path is not None:

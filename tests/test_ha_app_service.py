@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from application_paths import ApplicationPaths
-from ha_app.service import AUTHORIZATION_CACHE_NAME, AUTHORIZATION_STATUS_NAME, AppOptions, ServiceHost, SpotifyAuthorization, spotify_environment
+from ha_app.service import AUTHORIZATION_CACHE_NAME, AUTHORIZATION_STATUS_NAME, AppOptions, ServiceHost, SpotifyPairing, spotify_environment
 
 
 class HomeAssistantServiceTests(unittest.TestCase):
@@ -38,31 +38,9 @@ class HomeAssistantServiceTests(unittest.TestCase):
     def test_host_has_no_scheduler_policy(self):
         self.assertFalse(hasattr(self.service, "_policy"))
 
-    @patch("ha_app.service.SpotifyOAuth")
-    def test_authorization_accepts_https_ingress_callback_and_marks_connected(self, oauth):
-        manager = oauth.return_value
-        manager.get_authorize_url.return_value = "https://accounts.spotify.test/authorize"
-        connected = []
-        authorization = SpotifyAuthorization(self.options, self.paths.data_dir / AUTHORIZATION_CACHE_NAME, lambda: connected.append(True))
-        started = authorization.start("https://ha.example/api/hassio_ingress/id/spotify/callback")
-        self.assertEqual(started["callback_uri"], "https://ha.example/api/hassio_ingress/id/spotify/callback")
-        state = manager.get_authorize_url.call_args.kwargs["state"]
-        self.assertEqual(authorization.complete(f"code=opaque&state={state}"), "Spotify is connected. Returning to Playlist Assistant…")
-        manager.get_access_token.assert_called_once_with("opaque", check_cache=False)
-        self.assertEqual(connected, [True])
-
-    def test_authorization_rejects_invalid_callback_and_state(self):
-        authorization = SpotifyAuthorization(self.options, self.paths.data_dir / AUTHORIZATION_CACHE_NAME, lambda: None)
-        with self.assertRaisesRegex(ValueError, "Ingress callback"):
-            authorization.start("not-a-url")
-        with self.assertRaisesRegex(ValueError, "verified"):
-            authorization.complete("code=opaque&state=wrong")
-
-    @patch("ha_app.service.SpotifyOAuth")
-    def test_authorization_rejects_http_ingress_callback_without_starting_oauth(self, oauth):
-        authorization = SpotifyAuthorization(self.options, self.paths.data_dir / AUTHORIZATION_CACHE_NAME, lambda: None)
-
-        with self.assertRaisesRegex(ValueError, "HTTPS"):
-            authorization.start("http://ha.example/api/hassio_ingress/id/spotify/callback")
-
-        oauth.assert_not_called()
+    def test_pairing_session_is_memory_only_and_expires_from_status(self):
+        pairing = SpotifyPairing(self.options, self.paths.data_dir / AUTHORIZATION_CACHE_NAME, lambda: None)
+        document = pairing.prepare()
+        self.assertEqual(pairing.state(), "awaiting_import")
+        self.assertNotIn("refresh_token", json.dumps(document))
+        self.assertFalse((self.paths.data_dir / "spotify-pairing.json").exists())

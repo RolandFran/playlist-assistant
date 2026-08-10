@@ -87,18 +87,13 @@ class ControlPanelTests(unittest.TestCase):
         })
         self.assertIn("settings_saved", logs.output[0])
 
-    def test_authorization_endpoint_and_callback_are_explicit(self):
-        captured = {}
-        self.panel.authorization_start = lambda uri: captured.setdefault("uri", uri) and {"authorization_url": "https://accounts.spotify.test/authorize"}
-        self.panel.authorization_callback = lambda query: captured.setdefault("query", query) and "Spotify connected."
+    def test_pairing_download_is_ingress_only_and_not_cached(self):
+        self.panel.pairing_prepare = lambda: {"version": 1}
         self.ingress = start_ingress(self.panel, bridge_token="bridge-secret", port=0,
                                      ingress_client_address="127.0.0.1")
         self.addCleanup(self.ingress.server_close)
         self.addCleanup(self.ingress.shutdown)
-        request = json.dumps({"callback_uri": "https://ha.example/api/hassio_ingress/id/spotify/callback"}).encode()
-        with self.request_ingress("/api/spotify/authorize", headers={"Content-Type": "application/json"}, data=request) as response:
-            self.assertEqual(json.loads(response.read())["authorization_url"], "https://accounts.spotify.test/authorize")
-        self.assertEqual(captured["uri"], "https://ha.example/api/hassio_ingress/id/spotify/callback")
-        with self.request_ingress("/spotify/callback?code=opaque&state=opaque", headers={"X-Ingress-Path": "/api/hassio_ingress/id"}) as response:
-            self.assertIn("spotify=connected", response.read().decode())
-        self.assertEqual(captured["query"], "code=opaque&state=opaque")
+        with self.request_ingress("/api/spotify/pairing-file") as response:
+            self.assertEqual(json.loads(response.read()), {"version": 1})
+            self.assertEqual(response.headers["Cache-Control"], "no-store")
+            self.assertIn("attachment", response.headers["Content-Disposition"])
