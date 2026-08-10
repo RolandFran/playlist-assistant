@@ -15,7 +15,10 @@ from typing import Callable, Mapping
 
 from application_paths import ApplicationPaths
 from application_storage import ApplicationStorage
-from ha_app.control_panel import ControlPanel, start_ingress
+try:  # Direct execution inside the add-on image.
+    from control_panel import ControlPanel, start_ingress
+except ModuleNotFoundError:  # Repository imports used by local tests.
+    from ha_app.control_panel import ControlPanel, start_ingress
 from run import create_runtime_orchestrator
 
 LOGGER = logging.getLogger("playlist_assistant.ha_app")
