@@ -90,3 +90,12 @@ class IntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.hass.services.handlers, {})
         self.assertEqual(self.hass.bus.listeners, {})
         self.assertEqual(set(self.hass.config_entries.unloaded), {"sensor", "binary_sensor"})
+
+    async def test_native_callbacks_route_through_bridge_and_refresh_coordinator(self):
+        interval_callback = next(track[2] for track in self.hass.tracks if track[0] == "interval")
+        daily_callback = next(track[3] for track in self.hass.tracks if track[0] == "daily")
+        await interval_callback()
+        await daily_callback()
+        self.assertEqual(self.data["bridge"].calls, ["sync", "run"])
+        self.assertEqual(self.data["coordinator"].data["preview"]["state"], "state-2")
+        self.assertGreaterEqual(self.data["coordinator"].listeners, 2)
