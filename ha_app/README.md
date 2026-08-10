@@ -2,8 +2,10 @@
 
 This directory is a custom Home Assistant app package for Playlist Assistant.
 It starts one small supervised Python service after Home Assistant has started
-(`startup: application`). The service invokes the existing `SchedulerPolicy`
-once per minute; it does not contain another scheduler or Spotify pipeline.
+(`startup: application`). It hosts only the Ingress application and connection
+reporting. The companion `playlist_assistant` custom integration owns native
+Home Assistant scheduling, actions, and entities; the app/engine owns every
+Spotify and pipeline operation.
 
 ## Ingress control panel
 
@@ -13,8 +15,10 @@ persisted settings. The page uses the Home Assistant browser language when it
 is German and otherwise uses English. It exposes no host port or general LAN
 API; the internal listener accepts only the Supervisor Ingress proxy.
 
-The panel can collect history, sync sources, calculate a local Today result,
-or publish Today. Spotify-dependent buttons explain why they are unavailable
+The panel workflow is **change settings → Preview → inspect → Publish**.
+It can sync history, create a persisted preview, publish a current preview,
+or run the complete pipeline. Source synchronization is deliberately internal
+to a complete run. Spotify-dependent buttons explain why they are unavailable
 when authorization is missing. Changing the target playlist name keeps its
 persisted Spotify ID and real publishing renames that same playlist instead
 of creating another one.
@@ -47,8 +51,8 @@ process environment for the existing engine.
 Browser authorization, a callback, token-copying options, and re-authorization
 are intentionally not implemented. Until an existing usable authorization
 cache is available, the service stays up with `spotify_status=not_connected`,
-pauses scheduler jobs, and reports a healthy watchdog response. It checks
-again on its normal one-minute tick, not in a tight retry loop.
+reports a healthy watchdog response. It does not poll or schedule pipeline
+work itself.
 
 ## Persistent data, logs, and health
 

@@ -24,9 +24,10 @@ Currently included:
 
 ## Home Assistant app runtime foundation
 
-`ha_app/` is a custom Home Assistant app package. It uses `startup:
-application`, keeps all engine persistence under `/data`, and starts a small
-service that calls the existing scheduler policy once per minute. It does not
+`ha_app/` is a custom Home Assistant app package. The companion
+`custom_components/playlist_assistant` integration registers Home Assistant
+native schedules and actions, while the app keeps all engine persistence under
+`/data` and executes the Spotify pipeline. It does not
 access `/config`, Node-RED, host devices, dashboards, automations, or existing
 Home Assistant configuration. See [ha_app/README.md](ha_app/README.md) for
 installation/testing guidance, the two Spotify configuration options, logs,
@@ -115,7 +116,10 @@ Only the rare weight is configurable. The long weight is always calculated as it
 
 ## Scheduling policy
 
-The engine includes a persistent, Home-Assistant-independent scheduler policy for a future host to invoke. It is not a background daemon or service. History is due every configured interval (90 minutes by default); Today is enabled by default and due once per day at local `04:00`. The Today time uses strict 24-hour `HH:MM` validation.
+The Home Assistant integration registers a periodic History callback (90
+minutes by default) and one daily local-time callback (`04:00` by default).
+Changing either setting in Ingress replaces the callbacks immediately. Home
+Assistant does not catch up missed callbacks after a restart.
 
 Scheduled runs persist their own attempt state. After a restart, an overdue History run or missed Today slot is caught up once. Failed scheduled History runs wait for the next configured interval; failed Today runs wait for the next daily slot. A scheduled Today run uses the normal pipeline and writes to Spotify. This does not change the manual CLI: `python run.py today` remains a dry run and `python run.py today --write` remains an explicit manual publish.
 
