@@ -91,8 +91,8 @@ class SpotifyAuthorization:
 
     def start(self, callback_uri: str) -> dict:
         parsed = urlparse(callback_uri)
-        if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.username or parsed.password:
-            raise ValueError("A valid Ingress callback URL is required.")
+        if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
+            raise ValueError("Spotify authorization requires an HTTPS Ingress callback URL.")
         self._state = secrets.token_urlsafe(32)
         self._callback_uri = callback_uri
         manager = self._manager(callback_uri)

@@ -39,7 +39,7 @@ class HomeAssistantServiceTests(unittest.TestCase):
         self.assertFalse(hasattr(self.service, "_policy"))
 
     @patch("ha_app.service.SpotifyOAuth")
-    def test_authorization_uses_ingress_callback_and_marks_connected(self, oauth):
+    def test_authorization_accepts_https_ingress_callback_and_marks_connected(self, oauth):
         manager = oauth.return_value
         manager.get_authorize_url.return_value = "https://accounts.spotify.test/authorize"
         connected = []
@@ -57,3 +57,12 @@ class HomeAssistantServiceTests(unittest.TestCase):
             authorization.start("not-a-url")
         with self.assertRaisesRegex(ValueError, "verified"):
             authorization.complete("code=opaque&state=wrong")
+
+    @patch("ha_app.service.SpotifyOAuth")
+    def test_authorization_rejects_http_ingress_callback_without_starting_oauth(self, oauth):
+        authorization = SpotifyAuthorization(self.options, self.paths.data_dir / AUTHORIZATION_CACHE_NAME, lambda: None)
+
+        with self.assertRaisesRegex(ValueError, "HTTPS"):
+            authorization.start("http://ha.example/api/hassio_ingress/id/spotify/callback")
+
+        oauth.assert_not_called()

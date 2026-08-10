@@ -28,6 +28,8 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
         self.assertIn("target_playlist_name", frontend)
         self.assertIn("today_schedule_enabled", frontend)
         self.assertIn("aria-readonly", frontend)
+        self.assertIn("protocol==='https:'", frontend)
+        self.assertIn("connect.disabled=!secure", frontend)
         panel = (ADDON / "ui" / "index.html").read_text(encoding="utf-8")
         self.assertIn('data-i18n="playlist_preview"', panel)
         self.assertNotIn('data-i18n="today"', panel)

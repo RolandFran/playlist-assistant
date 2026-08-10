@@ -77,11 +77,14 @@ process environment for the existing engine.
 
 Saving settings does not authorize Spotify. When Spotify is not connected, the
 Ingress panel shows a **Connect Spotify** action and the exact redirect URI to
-register in the Spotify Developer Dashboard. Register that URI verbatim (it
-contains the current Home Assistant Ingress path), then use the button. The
-browser returns through Ingress, where the add-on exchanges the authorization
-code and stores only Spotify's token cache under `/data`. The panel then shows
-Spotify as connected and enables Spotify actions. Client secret, bridge token,
+register in the Spotify Developer Dashboard. **Spotify requires this callback
+to use HTTPS.** Open Home Assistant through its configured HTTPS external URL
+first; if the current Ingress URL is HTTP, the button is disabled and no OAuth
+request is started. Register the exact displayed URI verbatim (it contains the
+current Home Assistant Ingress path), then use the button. The browser returns
+through Ingress, where the add-on exchanges the authorization code and stores
+only Spotify's token cache under `/data`. The panel then shows Spotify as
+connected and enables Spotify actions. Client secret, bridge token,
 authorization code, and access/refresh tokens are never shown or logged.
 
 Until authorization is completed, the service stays up with
@@ -107,6 +110,6 @@ LAN API and no port is published by this package.
 
 ## Deferred work
 
-This foundation intentionally defers entities, services, custom cards, browser
-Spotify authorization/re-authorization, backup/restore, and any changes to
-existing Home Assistant or Node-RED configuration.
+This foundation intentionally defers entities, services, custom cards,
+backup/restore, and any changes to existing Home Assistant or Node-RED
+configuration.
