@@ -1,4 +1,4 @@
-FROM ghcr.io/home-assistant/base:3.20
+FROM ghcr.io/home-assistant/base:latest
 
 ARG BUILD_VERSION
 ARG BUILD_ARCH
