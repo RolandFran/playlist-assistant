@@ -18,9 +18,10 @@ class ControlPanelTests(unittest.TestCase):
     def tearDown(self):
         self.directory.cleanup()
 
-    def request_ingress(self, path, *, headers=None):
+    def request_ingress(self, path, *, headers=None, data=None):
         headers = headers or {}
-        request = Request(f"http://127.0.0.1:{self.ingress.server_address[1]}{path}", headers=headers)
+        request = Request(f"http://127.0.0.1:{self.ingress.server_address[1]}{path}", headers=headers, data=data,
+                          method="POST" if data is not None else "GET")
         return urlopen(request)
 
     def test_state_is_secret_free_and_marks_spotify_actions_unavailable(self):
@@ -65,3 +66,34 @@ class ControlPanelTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, 404)
         self.assertEqual(caught.exception.headers.get_content_type(), "application/json")
         self.assertEqual(json.loads(caught.exception.read()), {"error": "Unknown API endpoint."})
+
+    def test_settings_api_returns_save_feedback_and_persists_values(self):
+        self.ingress = start_ingress(self.panel, bridge_token="bridge-secret", port=0,
+                                     ingress_client_address="127.0.0.1")
+        self.addCleanup(self.ingress.server_close)
+        self.addCleanup(self.ingress.shutdown)
+        payload = json.dumps({"today_size": 77, "rare_weight": 60, "artist_gap": 3,
+                              "history_poll_minutes": 120, "today_schedule_enabled": True,
+                              "today_schedule_time": "07:30", "target_playlist_name": "Morning"}).encode()
+        with self.assertLogs("playlist_assistant.control_panel", "INFO") as logs:
+            with self.request_ingress("/api/settings", headers={"Content-Type": "application/json"}, data=payload) as response:
+                result = json.loads(response.read())
+        self.assertEqual(result["message"], "Settings saved.")
+        self.assertEqual(result["state"]["settings"]["target_playlist_name"], "Morning")
+        self.assertIn("settings_saved", logs.output[0])
+
+    def test_authorization_endpoint_and_callback_are_explicit(self):
+        captured = {}
+        self.panel.authorization_start = lambda uri: captured.setdefault("uri", uri) and {"authorization_url": "https://accounts.spotify.test/authorize"}
+        self.panel.authorization_callback = lambda query: captured.setdefault("query", query) and "Spotify connected."
+        self.ingress = start_ingress(self.panel, bridge_token="bridge-secret", port=0,
+                                     ingress_client_address="127.0.0.1")
+        self.addCleanup(self.ingress.server_close)
+        self.addCleanup(self.ingress.shutdown)
+        request = json.dumps({"callback_uri": "https://ha.example/api/hassio_ingress/id/spotify/callback"}).encode()
+        with self.request_ingress("/api/spotify/authorize", headers={"Content-Type": "application/json"}, data=request) as response:
+            self.assertEqual(json.loads(response.read())["authorization_url"], "https://accounts.spotify.test/authorize")
+        self.assertEqual(captured["uri"], "https://ha.example/api/hassio_ingress/id/spotify/callback")
+        with self.request_ingress("/spotify/callback?code=opaque&state=opaque", headers={"X-Ingress-Path": "/api/hassio_ingress/id"}) as response:
+            self.assertIn("spotify=connected", response.read().decode())
+        self.assertEqual(captured["query"], "code=opaque&state=opaque")

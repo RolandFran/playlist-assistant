@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import hmac
+import logging
 import sqlite3
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -20,17 +21,21 @@ from workflow import PlaylistWorkflow
 
 INGRESS_PORT = 8098
 APP_DIR = Path(__file__).parent
+LOGGER = logging.getLogger("playlist_assistant.control_panel")
 
 
 class ControlPanel:
     """Read and change only persistent app state under the selected data path."""
 
-    def __init__(self, paths: ApplicationPaths, *, spotify_available: Callable[[], bool], workflow=None, schedule_changed=None):
+    def __init__(self, paths: ApplicationPaths, *, spotify_available: Callable[[], bool], workflow=None,
+                 schedule_changed=None, authorization_start=None, authorization_callback=None):
         self.paths = paths
         self.storage = ApplicationStorage(paths.database_path)
         self.spotify_available = spotify_available
         self.workflow = workflow or PlaylistWorkflow(paths, storage=self.storage)
         self.schedule_changed = schedule_changed or (lambda _config: None)
+        self.authorization_start = authorization_start
+        self.authorization_callback = authorization_callback
 
     def state(self) -> dict:
         config = self.storage.load_runtime_config()
@@ -60,10 +65,25 @@ class ControlPanel:
             today_schedule_time=str(values.get("today_schedule_time", current.today_schedule_time)),
         )
         target_name = str(values.get("target_playlist_name", self.storage.get_target_playlist()[0])).strip()
-        self.storage.save_runtime_config(config)
-        self.storage.save_target_playlist(target_name)
-        self.schedule_changed(config)
+        try:
+            self.storage.save_runtime_config(config)
+            self.storage.save_target_playlist(target_name)
+            self.schedule_changed(config)
+        except Exception as error:
+            LOGGER.warning("settings_save_failed error_type=%s", type(error).__name__)
+            raise
+        LOGGER.info("settings_saved")
         return self.state()
+
+    def start_authorization(self, callback_uri: str) -> dict:
+        if self.authorization_start is None:
+            raise RuntimeError("Spotify authorization is unavailable.")
+        return self.authorization_start(callback_uri)
+
+    def complete_authorization(self, query: str) -> str:
+        if self.authorization_callback is None:
+            raise RuntimeError("Spotify authorization is unavailable.")
+        return self.authorization_callback(query)
 
     def run_action(self, action: str) -> dict:
         if not self.spotify_available():
@@ -134,6 +154,11 @@ def start_ingress(panel: ControlPanel, *, bridge_token: str, port: int = INGRESS
                 return self._json(200, json.loads((APP_DIR / "ui" / "i18n" / f"{lang}.json").read_text(encoding="utf-8")))
             if path.startswith("/api/"):
                 return self._api_error(HTTPStatus.NOT_FOUND, "Unknown API endpoint.")
+            if path == "/spotify/callback":
+                try:
+                    return self._authorization_result(panel.complete_authorization(urlsplit(self.path).query), self._ingress_base_path())
+                except (ValueError, RuntimeError) as error:
+                    return self._authorization_result(str(error), self._ingress_base_path(), success=False)
             if path == "/":
                 return self._file("index.html", "text/html; charset=utf-8", ingress_base_path=self._ingress_base_path())
             if path == "/app.js": return self._file("app.js", "application/javascript; charset=utf-8")
@@ -148,12 +173,24 @@ def start_ingress(panel: ControlPanel, *, bridge_token: str, port: int = INGRESS
             if not self._allow_ingress(api=path.startswith("/api/")): return
             try:
                 size = int(self.headers.get("Content-Length", "0")); data = json.loads(self.rfile.read(size) or b"{}")
-                if path == "/api/settings": return self._json(200, panel.save_settings(data))
+                if not isinstance(data, dict):
+                    raise ValueError("JSON request body must be an object.")
+                if path == "/api/settings":
+                    return self._json(200, {"ok": True, "message": "Settings saved.", "state": panel.save_settings(data)})
+                if path == "/api/spotify/authorize":
+                    return self._json(200, panel.start_authorization(str(data.get("callback_uri", ""))))
                 if path.startswith("/api/actions/"): return self._json(200, panel.run_action(path.rsplit("/", 1)[-1]))
                 if path.startswith("/api/"): return self._api_error(HTTPStatus.NOT_FOUND, "Unknown API endpoint.")
                 self.send_error(404)
             except (ValueError, RuntimeError) as error:
                 self._json(400, {"error": str(error)})
+        def _authorization_result(self, message, ingress_base_path, *, success=True):
+            marker = "connected" if success else "failed"
+            destination = ingress_base_path + "?spotify=" + marker
+            body = ("<!doctype html><meta charset=\"utf-8\"><title>Playlist Assistant</title>"
+                    f"<p>{message}</p><p><a href=\"{destination}\">Return to Playlist Assistant</a></p>"
+                    f"<script>location.replace({json.dumps(destination)})</script>").encode("utf-8")
+            self.send_response(HTTPStatus.OK); self.send_header("Content-Type", "text/html; charset=utf-8"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         def _file(self, name, content_type, ingress_base_path=None):
             data = (APP_DIR / "ui" / name).read_bytes()
             if ingress_base_path is not None:

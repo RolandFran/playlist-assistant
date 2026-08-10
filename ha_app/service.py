@@ -6,12 +6,16 @@ import argparse
 import json
 import logging
 import os
+import secrets
 import urllib.request
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Event, Thread
 from typing import Callable, Mapping
+from urllib.parse import parse_qs, urlparse
+
+from spotipy.oauth2 import SpotifyOAuth
 
 from application_paths import ApplicationPaths
 from application_storage import ApplicationStorage
@@ -26,6 +30,10 @@ DEFAULT_TICK_SECONDS = 60
 DEFAULT_HEALTH_PORT = 8099
 AUTHORIZATION_CACHE_NAME = "spotify-oauth-cache.json"
 AUTHORIZATION_STATUS_NAME = "spotify-authorization-status.json"
+SPOTIFY_SCOPE = " ".join((
+    "user-read-recently-played", "playlist-read-private", "playlist-read-collaborative",
+    "playlist-modify-private", "playlist-modify-public",
+))
 
 
 @dataclass(frozen=True)
@@ -69,6 +77,61 @@ def has_usable_authorization(cache_path: Path) -> bool:
     except (OSError, ValueError, json.JSONDecodeError):
         return False
     return isinstance(payload, dict) and bool(payload.get("access_token") or payload.get("refresh_token"))
+
+
+class SpotifyAuthorization:
+    """One browser OAuth exchange for the currently authenticated Ingress user."""
+
+    def __init__(self, options: AppOptions, cache_path: Path, on_connected: Callable[[], None]):
+        self._options = options
+        self._cache_path = cache_path
+        self._on_connected = on_connected
+        self._state: str | None = None
+        self._callback_uri: str | None = None
+
+    def start(self, callback_uri: str) -> dict:
+        parsed = urlparse(callback_uri)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.username or parsed.password:
+            raise ValueError("A valid Ingress callback URL is required.")
+        self._state = secrets.token_urlsafe(32)
+        self._callback_uri = callback_uri
+        manager = self._manager(callback_uri)
+        LOGGER.info("spotify_authorization_started")
+        return {"authorization_url": manager.get_authorize_url(state=self._state), "callback_uri": callback_uri}
+
+    def complete(self, query: str) -> str:
+        values = parse_qs(query)
+        if values.get("state", [None])[0] != self._state or not self._callback_uri:
+            LOGGER.warning("spotify_authorization_failed reason=invalid_state")
+            raise ValueError("Spotify authorization could not be verified. Please start again.")
+        callback_uri = self._callback_uri
+        self._state = None
+        self._callback_uri = None
+        if values.get("error"):
+            LOGGER.warning("spotify_authorization_failed reason=provider_denied")
+            raise RuntimeError("Spotify authorization was cancelled or denied.")
+        code = values.get("code", [None])[0]
+        if not code:
+            LOGGER.warning("spotify_authorization_failed reason=missing_code")
+            raise ValueError("Spotify did not return an authorization code.")
+        try:
+            self._manager(callback_uri).get_access_token(code, check_cache=False)
+        except Exception as error:
+            LOGGER.warning("spotify_authorization_failed error_type=%s", type(error).__name__)
+            raise RuntimeError("Spotify authorization failed. Check the redirect URI and try again.") from error
+        self._on_connected()
+        LOGGER.info("spotify_authorization_completed")
+        return "Spotify is connected. Returning to Playlist Assistant…"
+
+    def _manager(self, redirect_uri: str) -> SpotifyOAuth:
+        return SpotifyOAuth(
+            client_id=self._options.spotify_client_id,
+            client_secret=self._options.spotify_client_secret,
+            redirect_uri=redirect_uri,
+            scope=SPOTIFY_SCOPE,
+            cache_path=str(self._cache_path),
+            open_browser=False,
+        )
 
 
 class ServiceHost:
@@ -120,9 +183,12 @@ class ServiceHost:
         stop_event = stop_event or Event()
         LOGGER.info("service_started tick_seconds=%d data_dir=%s", self.tick_seconds, self.paths.data_dir)
         health_server = _start_health_server(lambda: self._connected)
+        authorization = SpotifyAuthorization(self.options, self.authorization_cache_path, self._mark_connected)
         ingress_server = start_ingress(
             ControlPanel(self.paths, spotify_available=lambda: self._connected,
-                         schedule_changed=self._notify_schedule_changed),
+                         schedule_changed=self._notify_schedule_changed,
+                         authorization_start=authorization.start,
+                         authorization_callback=authorization.complete),
             bridge_token=self.options.bridge_token,
         )
         LOGGER.info("ingress_control_panel_started port=%d path=/", ingress_server.server_address[1])
@@ -135,6 +201,10 @@ class ServiceHost:
             ingress_server.shutdown()
             ingress_server.server_close()
             LOGGER.info("service_stopped")
+
+    def _mark_connected(self) -> None:
+        self._connected = has_usable_authorization(self.authorization_cache_path)
+        self._write_authorization_status("authorization_cache_available" if self._connected else "not_connected")
 
     def _notify_schedule_changed(self, config) -> None:
         """Tell HA Core to replace native callbacks; no browser/LAN path."""

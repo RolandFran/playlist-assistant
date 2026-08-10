@@ -21,7 +21,7 @@ persisted settings. The page uses the Home Assistant browser language when it
 is German and otherwise uses English. It exposes no host port or general LAN
 API; the internal listener accepts only the Supervisor Ingress proxy.
 
-The panel workflow is **change settings → Preview → inspect → Publish**.
+The panel workflow is **save settings → connect Spotify → Preview → inspect → Publish**.
 It can sync history, create a persisted preview, publish a current preview,
 or run the complete pipeline. Source synchronization is deliberately internal
 to a complete run. Spotify-dependent buttons explain why they are unavailable
@@ -75,11 +75,18 @@ health endpoint, or logged. The start script reads Supervisor's private
 `/data/options.json` directly, and the service supplies the values only as
 process environment for the existing engine.
 
-Browser authorization, a callback, token-copying options, and re-authorization
-are intentionally not implemented. Until an existing usable authorization
-cache is available, the service stays up with `spotify_status=not_connected`,
-reports a healthy watchdog response. It does not poll or schedule pipeline
-work itself.
+Saving settings does not authorize Spotify. When Spotify is not connected, the
+Ingress panel shows a **Connect Spotify** action and the exact redirect URI to
+register in the Spotify Developer Dashboard. Register that URI verbatim (it
+contains the current Home Assistant Ingress path), then use the button. The
+browser returns through Ingress, where the add-on exchanges the authorization
+code and stores only Spotify's token cache under `/data`. The panel then shows
+Spotify as connected and enables Spotify actions. Client secret, bridge token,
+authorization code, and access/refresh tokens are never shown or logged.
+
+Until authorization is completed, the service stays up with
+`spotify_status=not_connected` and reports a healthy watchdog response. It
+does not poll or schedule pipeline work itself.
 
 ## Persistent data, logs, and health
 
