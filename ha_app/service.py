@@ -1,4 +1,4 @@
-"""Small supervised host for the existing Playlist Assistant scheduler policy."""
+"""Supervised Ingress host; scheduling is owned by the HA integration."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 import os
+import urllib.request
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -16,7 +17,6 @@ from application_paths import ApplicationPaths
 from application_storage import ApplicationStorage
 from ha_app.control_panel import ControlPanel, start_ingress
 from run import create_runtime_orchestrator
-from scheduler import SchedulerPolicy
 
 LOGGER = logging.getLogger("playlist_assistant.ha_app")
 DEFAULT_TICK_SECONDS = 60
@@ -31,12 +31,14 @@ class AppOptions:
 
     spotify_client_id: str
     spotify_client_secret: str
+    bridge_token: str = ""
 
     @classmethod
     def from_mapping(cls, values: Mapping[str, object]) -> "AppOptions":
         return cls(
             spotify_client_id=_required_option(values, "spotify_client_id"),
             spotify_client_secret=_required_option(values, "spotify_client_secret"),
+            bridge_token=_required_option(values, "bridge_token"),
         )
 
 
@@ -67,11 +69,11 @@ def has_usable_authorization(cache_path: Path) -> bool:
 
 
 class ServiceHost:
-    """Run policy ticks and a minimal watchdog endpoint for the app container."""
+    """Run Ingress and connection reporting, never an app scheduler."""
 
     def __init__(self, *, paths: ApplicationPaths, options: AppOptions,
                  tick_seconds: int = DEFAULT_TICK_SECONDS,
-                 policy_factory: Callable[..., SchedulerPolicy] = SchedulerPolicy,
+                 policy_factory=None,
                  runtime_factory: Callable[[ApplicationPaths], object] = create_runtime_orchestrator):
         if tick_seconds <= 0:
             raise ValueError("tick_seconds must be positive.")
@@ -79,7 +81,6 @@ class ServiceHost:
         self.options = options
         self.tick_seconds = tick_seconds
         self._storage = ApplicationStorage(paths.database_path)
-        self._policy = policy_factory(runtime=runtime_factory(paths), storage=self._storage)
         self._connected = False
 
     @property
@@ -91,36 +92,22 @@ class ServiceHost:
         return self.paths.data_dir / AUTHORIZATION_STATUS_NAME
 
     def tick(self) -> list[object]:
-        """Run one safe host tick; failures never terminate the service."""
+        """Refresh only the non-secret connection state (no jobs are run)."""
         self.paths.ensure_runtime_directories()
         if not has_usable_authorization(self.authorization_cache_path):
             if self._connected:
                 LOGGER.warning("spotify_status=not_connected authorization cache is unavailable")
             elif not self.authorization_status_path.exists():
-                LOGGER.warning("spotify_status=not_connected no usable authorization cache exists; scheduler jobs are paused")
+                LOGGER.warning("spotify_status=not_connected no usable authorization cache exists")
             self._connected = False
             self._write_authorization_status("not_connected")
             return []
 
         if not self._connected:
-            LOGGER.info("spotify_status=authorization_cache_available scheduler enabled")
+            LOGGER.info("spotify_status=authorization_cache_available")
         self._connected = True
         self._write_authorization_status("authorization_cache_available")
-        try:
-            runs = self._policy.run_due(self._storage.load_runtime_config())
-        except Exception:
-            LOGGER.exception("scheduler_tick_failed service will continue")
-            return []
-
-        for scheduled_run in runs:
-            result = scheduled_run.result
-            if getattr(result, "success", False):
-                LOGGER.info("scheduler_job_completed job=%s", scheduled_run.job_name)
-            else:
-                LOGGER.error("scheduler_job_failed job=%s step=%s error=%s", scheduled_run.job_name, getattr(result, "failed_step", None), getattr(result, "error", None))
-        if not runs:
-            LOGGER.info("scheduler_tick_completed due_jobs=0")
-        return runs
+        return []
 
     def _write_authorization_status(self, status: str) -> None:
         self.paths.data_dir.mkdir(parents=True, exist_ok=True)
@@ -131,18 +118,35 @@ class ServiceHost:
         LOGGER.info("service_started tick_seconds=%d data_dir=%s", self.tick_seconds, self.paths.data_dir)
         health_server = _start_health_server(lambda: self._connected)
         ingress_server = start_ingress(
-            ControlPanel(self.paths, spotify_available=lambda: self._connected)
+            ControlPanel(self.paths, spotify_available=lambda: self._connected,
+                         schedule_changed=self._notify_schedule_changed),
+            bridge_token=self.options.bridge_token,
         )
         try:
-            while not stop_event.is_set():
-                self.tick()
-                stop_event.wait(self.tick_seconds)
+            self.tick()
+            stop_event.wait()
         finally:
             health_server.shutdown()
             health_server.server_close()
             ingress_server.shutdown()
             ingress_server.server_close()
             LOGGER.info("service_stopped")
+
+    def _notify_schedule_changed(self, config) -> None:
+        """Tell HA Core to replace native callbacks; no browser/LAN path."""
+        token = os.getenv("SUPERVISOR_TOKEN")
+        if not token:
+            LOGGER.warning("schedule_change_not_sent supervisor token unavailable")
+            return
+        data = json.dumps({"history_interval_minutes": config.history_poll_minutes,
+                           "daily_enabled": config.today_schedule_enabled,
+                           "daily_time": config.today_schedule_time}).encode()
+        request = urllib.request.Request("http://supervisor/core/api/events/playlist_assistant_schedule_changed", data=data,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"}, method="POST")
+        try:
+            urllib.request.urlopen(request, timeout=5).close()
+        except OSError:
+            LOGGER.exception("schedule_change_notification_failed")
 
 
 def _start_health_server(connected: Callable[[], bool]) -> ThreadingHTTPServer:

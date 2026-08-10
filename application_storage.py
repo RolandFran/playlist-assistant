@@ -46,6 +46,12 @@ class SchedulerState:
     last_today_attempt_date: Optional[str]
 
 
+@dataclass(frozen=True)
+class PreviewState:
+    fingerprint: str
+    created_at: str
+
+
 class ApplicationStorage:
     """Read and write application-owned data in the production SQLite file."""
 
@@ -224,6 +230,28 @@ class ApplicationStorage:
             )
         return status
 
+    def save_preview(self, fingerprint: str, created_at: datetime) -> None:
+        """Record the engine preview that may safely be published.
+
+        The tracks themselves remain in the existing report file.  Keeping only
+        its deterministic input fingerprint here preserves the one production
+        SQLite database while making preview validity explicit.
+        """
+        with self._connection() as conn:
+            self._ensure_schema(conn)
+            conn.execute("INSERT INTO application_preview (id, fingerprint, created_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET fingerprint=excluded.fingerprint, created_at=excluded.created_at", (fingerprint, _serialize_datetime(created_at)))
+
+    def get_preview(self) -> PreviewState | None:
+        with self._connection() as conn:
+            self._ensure_schema(conn)
+            row = conn.execute("SELECT fingerprint, created_at FROM application_preview WHERE id = 1").fetchone()
+        return PreviewState(*row) if row else None
+
+    def clear_preview(self) -> None:
+        with self._connection() as conn:
+            self._ensure_schema(conn)
+            conn.execute("DELETE FROM application_preview WHERE id = 1")
+
     def get_job_status(
         self, job_name: str, *, conn: sqlite3.Connection | None = None
     ) -> Optional[JobStatus]:
@@ -279,6 +307,7 @@ class ApplicationStorage:
             )
             """
         )
+        conn.execute("CREATE TABLE IF NOT EXISTS application_preview (id INTEGER PRIMARY KEY CHECK (id = 1), fingerprint TEXT NOT NULL, created_at TEXT NOT NULL)")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS application_scheduler_state (
