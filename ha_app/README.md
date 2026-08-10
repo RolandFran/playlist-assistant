@@ -16,7 +16,7 @@ directory as part of the same change.
 ## Ingress control panel
 
 Home Assistant Ingress provides the authenticated daily control panel. It
-shows Spotify/last-job/scheduled status, current Today data, and the normal
+shows Spotify/last-job/scheduled status, the current playlist preview, and the normal
 persisted settings. The page uses the Home Assistant browser language when it
 is German and otherwise uses English. It exposes no host port or general LAN
 API; the internal listener accepts only the Supervisor Ingress proxy.

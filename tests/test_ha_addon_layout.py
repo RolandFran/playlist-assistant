@@ -25,6 +25,12 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
         frontend = (ADDON / "ui" / "app.js").read_text(encoding="utf-8")
         self.assertNotIn("api('/api/", frontend)
         self.assertIn("if(!response.ok)", frontend)
+        self.assertIn("target_playlist_name", frontend)
+        self.assertIn("today_schedule_enabled", frontend)
+        self.assertIn("aria-readonly", frontend)
+        panel = (ADDON / "ui" / "index.html").read_text(encoding="utf-8")
+        self.assertIn('data-i18n="playlist_preview"', panel)
+        self.assertNotIn('data-i18n="today"', panel)
         for name in (
             "requirements.txt", "service.py", "control_panel.py", "workflow.py",
             "run.py", "application_paths.py", "application_storage.py",

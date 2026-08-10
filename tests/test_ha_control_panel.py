@@ -79,7 +79,12 @@ class ControlPanelTests(unittest.TestCase):
             with self.request_ingress("/api/settings", headers={"Content-Type": "application/json"}, data=payload) as response:
                 result = json.loads(response.read())
         self.assertEqual(result["message"], "Settings saved.")
-        self.assertEqual(result["state"]["settings"]["target_playlist_name"], "Morning")
+        self.assertEqual(result["state"]["settings"], {
+            "today_size": 77, "rare_weight": 60, "artist_gap": 3,
+            "history_poll_minutes": 120, "today_schedule_enabled": True,
+            "today_schedule_time": "07:30", "long_weight": 40,
+            "target_playlist_name": "Morning",
+        })
         self.assertIn("settings_saved", logs.output[0])
 
     def test_authorization_endpoint_and_callback_are_explicit(self):

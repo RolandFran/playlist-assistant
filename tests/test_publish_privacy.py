@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from application_paths import ApplicationPaths
+from application_storage import ApplicationStorage
 from client import SpotifyClient
 import publish
 
@@ -112,6 +113,21 @@ class PublishPrivacyTests(unittest.TestCase):
             [
                 ("find", "Today"),
                 ("rename", "persisted-target", "Today"),
+                ("set_private", "persisted-target"),
+                ("replace", "persisted-target", ["spotify:track:one"]),
+            ],
+        )
+
+    def test_renamed_target_keeps_the_persisted_playlist_id(self):
+        ApplicationStorage(self.paths.database_path).save_target_playlist("Evening Mix", "persisted-target")
+        client = FakeSpotifyClient(target_playlist=None)
+
+        self.run_publish(client, "--write")
+
+        self.assertEqual(
+            client.calls,
+            [
+                ("rename", "persisted-target", "Evening Mix"),
                 ("set_private", "persisted-target"),
                 ("replace", "persisted-target", ["spotify:track:one"]),
             ],
