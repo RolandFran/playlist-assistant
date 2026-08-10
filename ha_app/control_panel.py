@@ -10,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
 from typing import Callable
+from urllib.parse import urlsplit
 
 from application_paths import ApplicationPaths
 from application_storage import ApplicationStorage
@@ -93,11 +94,15 @@ class ControlPanel:
                 pass
         return [{key: item.get(key) for key in ("track_name", "artist_name", "combined_score", "play_count")} | {"last_played": last_played.get(item.get("track_uri"))} for item in tracks]
 
-def start_ingress(panel: ControlPanel, *, bridge_token: str) -> ThreadingHTTPServer:
+def start_ingress(panel: ControlPanel, *, bridge_token: str, port: int = INGRESS_PORT,
+                  ingress_client_address: str = "172.30.32.2") -> ThreadingHTTPServer:
     class Handler(BaseHTTPRequestHandler):
-        def _allow_ingress(self):
-            if self.client_address[0] != "172.30.32.2":
-                self.send_error(HTTPStatus.FORBIDDEN)
+        def _allow_ingress(self, *, api=False):
+            if self.client_address[0] != ingress_client_address:
+                if api:
+                    self._api_error(HTTPStatus.FORBIDDEN, "Ingress access is required.")
+                else:
+                    self.send_error(HTTPStatus.FORBIDDEN)
                 return False
             return True
         def _allow_bridge(self):
@@ -108,38 +113,53 @@ def start_ingress(panel: ControlPanel, *, bridge_token: str) -> ThreadingHTTPSer
             return True
         def _json(self, status, value):
             data = json.dumps(value).encode("utf-8")
-            self.send_response(status); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
+            self.send_response(status); self.send_header("Content-Type", "application/json; charset=utf-8"); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
+        def _api_error(self, status, message):
+            self._json(status, {"error": message})
+        def _ingress_base_path(self):
+            path = self.headers.get("X-Ingress-Path", "/")
+            if not path.startswith("/") or path.startswith("//"):
+                return "/"
+            return path.rstrip("/") + "/"
         def do_GET(self):  # noqa: N802
-            if self.path == "/bridge/state":
+            path = urlsplit(self.path).path
+            if path == "/bridge/state":
                 if self._allow_bridge(): self._json(200, panel.state())
                 return
-            if not self._allow_ingress(): return
-            if self.path.startswith("/api/state"):
+            if not self._allow_ingress(api=path.startswith("/api/")): return
+            if path == "/api/state":
                 return self._json(200, panel.state())
-            if self.path.startswith("/api/i18n/"):
-                lang = "de" if self.path.endswith("/de") else "en"
+            if path in ("/api/i18n/de", "/api/i18n/en"):
+                lang = path.rsplit("/", 1)[-1]
                 return self._json(200, json.loads((APP_DIR / "ui" / "i18n" / f"{lang}.json").read_text(encoding="utf-8")))
-            if self.path == "/" or self.path.startswith("/?"):
-                return self._file("index.html", "text/html")
-            if self.path == "/app.js": return self._file("app.js", "application/javascript")
-            if self.path == "/app.css": return self._file("app.css", "text/css")
+            if path.startswith("/api/"):
+                return self._api_error(HTTPStatus.NOT_FOUND, "Unknown API endpoint.")
+            if path == "/":
+                return self._file("index.html", "text/html; charset=utf-8", ingress_base_path=self._ingress_base_path())
+            if path == "/app.js": return self._file("app.js", "application/javascript; charset=utf-8")
+            if path == "/app.css": return self._file("app.css", "text/css; charset=utf-8")
             self.send_error(404)
         def do_POST(self):  # noqa: N802
-            if self.path.startswith("/bridge/actions/"):
+            path = urlsplit(self.path).path
+            if path.startswith("/bridge/actions/"):
                 if not self._allow_bridge(): return
-                try: return self._json(200, panel.run_action(self.path.rsplit("/", 1)[-1]))
+                try: return self._json(200, panel.run_action(path.rsplit("/", 1)[-1]))
                 except (ValueError, RuntimeError) as error: return self._json(400, {"error": str(error)})
-            if not self._allow_ingress(): return
+            if not self._allow_ingress(api=path.startswith("/api/")): return
             try:
                 size = int(self.headers.get("Content-Length", "0")); data = json.loads(self.rfile.read(size) or b"{}")
-                if self.path == "/api/settings": return self._json(200, panel.save_settings(data))
-                if self.path.startswith("/api/actions/"): return self._json(200, panel.run_action(self.path.rsplit("/", 1)[-1]))
+                if path == "/api/settings": return self._json(200, panel.save_settings(data))
+                if path.startswith("/api/actions/"): return self._json(200, panel.run_action(path.rsplit("/", 1)[-1]))
+                if path.startswith("/api/"): return self._api_error(HTTPStatus.NOT_FOUND, "Unknown API endpoint.")
                 self.send_error(404)
             except (ValueError, RuntimeError) as error:
                 self._json(400, {"error": str(error)})
-        def _file(self, name, content_type):
-            data = (APP_DIR / "ui" / name).read_bytes(); self.send_response(200); self.send_header("Content-Type", content_type); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
+        def _file(self, name, content_type, ingress_base_path=None):
+            data = (APP_DIR / "ui" / name).read_bytes()
+            if ingress_base_path is not None:
+                data = data.replace(b"{{INGRESS_BASE_PATH}}", ingress_base_path.encode("utf-8"))
+            self.send_response(200); self.send_header("Content-Type", content_type); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
         def log_message(self, *_): pass
-    server = ThreadingHTTPServer(("0.0.0.0", INGRESS_PORT), Handler)
+    server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
     Thread(target=server.serve_forever, daemon=True).start()
     return server

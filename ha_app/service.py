@@ -125,6 +125,7 @@ class ServiceHost:
                          schedule_changed=self._notify_schedule_changed),
             bridge_token=self.options.bridge_token,
         )
+        LOGGER.info("ingress_control_panel_started port=%d path=/", ingress_server.server_address[1])
         try:
             self.tick()
             stop_event.wait()
