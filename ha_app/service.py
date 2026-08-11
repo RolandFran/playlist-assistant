@@ -6,14 +6,12 @@ import argparse
 import json
 import logging
 import os
-import tempfile
 import urllib.request
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Event, Thread
 from typing import Callable, Mapping
-from spotipy.oauth2 import SpotifyOAuth
 
 from application_paths import ApplicationPaths
 from application_storage import ApplicationStorage
@@ -22,99 +20,29 @@ try:  # Direct execution inside the add-on image.
 except ModuleNotFoundError:  # Repository imports used by local tests.
     from ha_app.control_panel import ControlPanel, start_ingress
 from run import create_runtime_orchestrator
-from spotify_pairing import LOOPBACK_REDIRECT, PairingSession
 
 LOGGER = logging.getLogger("playlist_assistant.ha_app")
 DEFAULT_TICK_SECONDS = 60
 DEFAULT_HEALTH_PORT = 8099
-AUTHORIZATION_CACHE_NAME = "spotify-oauth-cache.json"
 AUTHORIZATION_STATUS_NAME = "spotify-authorization-status.json"
-SPOTIFY_SCOPE = " ".join((
-    "user-read-recently-played", "playlist-read-private", "playlist-read-collaborative",
-    "playlist-modify-private", "playlist-modify-public",
-))
 
 
 @dataclass(frozen=True)
 class AppOptions:
-    """Spotify credentials supplied by the Supervisor, never logged or stored."""
-
-    spotify_client_id: str
-    spotify_client_secret: str
-    bridge_token: str = ""
+    """The add-on has no Spotify credentials or application options."""
 
     @classmethod
     def from_mapping(cls, values: Mapping[str, object]) -> "AppOptions":
-        return cls(
-            spotify_client_id=_required_option(values, "spotify_client_id"),
-            spotify_client_secret=_required_option(values, "spotify_client_secret"),
-            bridge_token=_required_option(values, "bridge_token"),
-        )
-
-
-def _required_option(values: Mapping[str, object], name: str) -> str:
-    value = values.get(name)
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"Home Assistant app option {name!r} must be a non-empty string.")
-    return value
+        return cls()
 
 
 def spotify_environment(options: AppOptions, paths: ApplicationPaths) -> dict[str, str]:
     """Return the private engine environment without printing credentials."""
     return {
-        "SPOTIFY_CLIENT_ID": options.spotify_client_id,
-        "SPOTIFY_CLIENT_SECRET": options.spotify_client_secret,
-        "SPOTIFY_CACHE_PATH": str(paths.data_dir / AUTHORIZATION_CACHE_NAME),
-        "SPOTIFY_OPEN_BROWSER": "false",
+        "PLAYLIST_ASSISTANT_SPOTIFY_PROXY": "http://supervisor/core/api/playlist_assistant/spotify",
     }
 
 
-def has_usable_authorization(cache_path: Path) -> bool:
-    """Check for token material without exposing it."""
-    try:
-        payload = json.loads(cache_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError, json.JSONDecodeError):
-        return False
-    return isinstance(payload, dict) and bool(payload.get("access_token") or payload.get("refresh_token"))
-
-
-class SpotifyPairing:
-    """Owns one in-memory encrypted token import session."""
-    def __init__(self, options: AppOptions, cache_path: Path, on_connected: Callable[[], None]):
-        self._options, self._cache_path, self._on_connected = options, cache_path, on_connected
-        self._session: PairingSession | None = None
-    def prepare(self) -> dict:
-        self._session = PairingSession(self._options.spotify_client_id, SPOTIFY_SCOPE)
-        LOGGER.info("spotify_pairing_prepared")
-        return self._session.public_document()
-    def state(self) -> str:
-        if self._session is None: return "not_connected"
-        if self._session.expired:
-            self._session = None; return "expired"
-        return "awaiting_import"
-    def import_document(self, document: dict) -> None:
-        session = self._session
-        if session is None: raise ValueError("No active pairing session exists.")
-        payload = session.decrypt_import(document)
-        try:
-            token = SpotifyOAuth(client_id=self._options.spotify_client_id, client_secret=self._options.spotify_client_secret,
-                redirect_uri=LOOPBACK_REDIRECT, scope=SPOTIFY_SCOPE, open_browser=False).refresh_access_token(payload["refresh_token"])
-            if not isinstance(token, dict) or not token.get("access_token"): raise RuntimeError("invalid Spotify response")
-            token["refresh_token"] = payload["refresh_token"]
-            self._write_cache(token)
-        except Exception as error:
-            LOGGER.warning("spotify_token_import_failed error_type=%s", type(error).__name__)
-            raise RuntimeError("Spotify could not verify the imported connection.") from error
-        self._session = None
-        self._on_connected()
-        LOGGER.info("spotify_token_imported")
-    def _write_cache(self, token: dict) -> None:
-        self._cache_path.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=self._cache_path.parent, prefix=".spotify-oauth-", delete=False) as file:
-            temp_path = Path(file.name); os.chmod(file.name, 0o600); json.dump(token, file); file.write("\n")
-        try: os.replace(temp_path, self._cache_path)
-        finally:
-            if temp_path.exists(): temp_path.unlink(missing_ok=True)
 
 
 class ServiceHost:
@@ -133,17 +61,20 @@ class ServiceHost:
         self._connected = False
 
     @property
-    def authorization_cache_path(self) -> Path:
-        return self.paths.data_dir / AUTHORIZATION_CACHE_NAME
-
-    @property
     def authorization_status_path(self) -> Path:
         return self.paths.data_dir / AUTHORIZATION_STATUS_NAME
 
     def tick(self) -> list[object]:
         """Refresh only the non-secret connection state (no jobs are run)."""
         self.paths.ensure_runtime_directories()
-        if not has_usable_authorization(self.authorization_cache_path):
+        try:
+            token = os.environ["SUPERVISOR_TOKEN"]
+            request = urllib.request.Request("http://supervisor/core/api/playlist_assistant/spotify", data=b'{"operation":"current_user"}', method="POST", headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+            urllib.request.urlopen(request, timeout=5).close()
+            connected = True
+        except (KeyError, OSError):
+            connected = False
+        if not connected:
             if self._connected:
                 LOGGER.warning("spotify_status=not_connected authorization cache is unavailable")
             elif not self.authorization_status_path.exists():
@@ -155,7 +86,7 @@ class ServiceHost:
         if not self._connected:
             LOGGER.info("spotify_status=authorization_cache_available")
         self._connected = True
-        self._write_authorization_status("authorization_cache_available")
+        self._write_authorization_status("connected")
         return []
 
     def _write_authorization_status(self, status: str) -> None:
@@ -166,13 +97,10 @@ class ServiceHost:
         stop_event = stop_event or Event()
         LOGGER.info("service_started tick_seconds=%d data_dir=%s", self.tick_seconds, self.paths.data_dir)
         health_server = _start_health_server(lambda: self._connected)
-        pairing = SpotifyPairing(self.options, self.authorization_cache_path, self._mark_connected)
         ingress_server = start_ingress(
             ControlPanel(self.paths, spotify_available=lambda: self._connected,
-                         schedule_changed=self._notify_schedule_changed,
-                         pairing_prepare=pairing.prepare, pairing_state=pairing.state,
-                         pairing_import=pairing.import_document),
-            bridge_token=self.options.bridge_token,
+                         schedule_changed=self._notify_schedule_changed),
+            bridge_token="",
         )
         LOGGER.info("ingress_control_panel_started port=%d path=/", ingress_server.server_address[1])
         try:
@@ -184,10 +112,6 @@ class ServiceHost:
             ingress_server.shutdown()
             ingress_server.server_close()
             LOGGER.info("service_stopped")
-
-    def _mark_connected(self) -> None:
-        self._connected = has_usable_authorization(self.authorization_cache_path)
-        self._write_authorization_status("authorization_cache_available" if self._connected else "not_connected")
 
     def _notify_schedule_changed(self, config) -> None:
         """Tell HA Core to replace native callbacks; no browser/LAN path."""

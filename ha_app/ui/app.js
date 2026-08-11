@@ -7,37 +7,6 @@ async function load(){const lang=language().toLowerCase().startsWith('de')?'de':
 function status(){const h=state.jobs.history||{},d=state.jobs.today||{},scheduled=state.schedule.daily_enabled?t.enabled:t.disabled;q('#status').textContent=`${t.spotify}: ${t[state.spotify.state]} · ${t.preview}: ${t[state.preview.state]} · ${t.playlist_preview}: ${state.today.count} · ${t.last_history}: ${h.ended_at||'—'} · ${t.last_today}: ${d.ended_at||'—'} · ${t.scheduler}: ${scheduled} (${state.schedule.daily_time}) · ${t.history_poll_minutes}: ${state.schedule.history_interval_minutes}`}
 function form(){const s=state.settings,fields=['today_size','rare_weight','artist_gap','history_poll_minutes','today_schedule_time','target_playlist_name'],numeric={today_size:[1],rare_weight:[0,100],artist_gap:[0],history_poll_minutes:[1]};q('#settings').replaceChildren(...fields.map(key=>{const label=document.createElement('label'),input=document.createElement('input');input.name=key;input.value=s[key];if(numeric[key]){input.type='number';input.min=numeric[key][0];if(numeric[key][1]!==undefined)input.max=numeric[key][1]}else if(key==='today_schedule_time')input.type='time';label.append(t[key]+' ',input);return label}),weight(),check(),button(t.save,'submit','primary'));q('#settings').onsubmit=async e=>{e.preventDefault();try{const d=Object.fromEntries(new FormData(e.target));d.today_schedule_enabled=e.target.today_schedule_enabled.checked;const result=await api('api/settings',{method:'POST',body:JSON.stringify(d)});state=result.state;message(t.saved);status();form();actions()}catch(error){message(error.message,'error')}}}
 function weight(){const label=document.createElement('output');label.setAttribute('aria-readonly','true');label.textContent=`${t.long_weight}: ${state.settings.long_weight}%`;return label}function check(){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.name='today_schedule_enabled';input.checked=state.settings.today_schedule_enabled;label.append(t.today_schedule_enabled,input);return label}function button(label,type='button',variant=''){const b=document.createElement('button');b.type=type;b.textContent=label;if(variant)b.className=variant;return b}
-function spotify(){
-  const area=q('#spotify-auth');
-  area.replaceChildren();
-  if(state.spotify.available)return;
-  const notice=document.createElement('p');
-  notice.textContent=t.local_login_help||'Download the pairing file, run the local Windows login, then upload the encrypted import file.';
-  const download=button(t.prepare_windows_login||'Prepare Windows login','button','primary');
-  download.onclick=()=>location.assign('api/spotify/pairing-file');
-  const upload=document.createElement('input');
-  upload.type='file';
-  upload.accept='application/json';
-  upload.disabled=state.spotify.state!=='awaiting_import';
-  upload.onchange=async()=>{
-    const file=upload.files[0];
-    if(!file)return;
-    try{
-      const result=await api('api/spotify/import',{
-        method:'POST',
-        body:await file.text(),
-      });
-      state=result.state;
-      message(t.spotify_connected);
-      load();
-    }catch(error){
-      message(error.message,'error');
-    }
-  };
-  const label=document.createElement('label');
-  label.textContent=t.import_token||'Upload encrypted token file';
-  label.append(upload);
-  area.append(notice,download,label);
-}
+function spotify(){const area=q('#spotify-auth');area.replaceChildren();const notice=document.createElement('p');notice.textContent=state.spotify.available?(t.spotify_connected||'Connected in Home Assistant.'):(t.not_connected||'Connect Spotify in the Home Assistant integration.');area.append(notice)}
 function actions(){const area=q('#actions');area.replaceChildren(...['sync','preview','publish','run'].map(action=>{const b=button(t[action]);b.disabled=!state.spotify.available;b.onclick=async()=>{try{state=await api('api/actions/'+action,{method:'POST'});message(t.action_complete);load()}catch(error){message(error.message,'error')}};return b}));if(!state.spotify.available){const reason=document.createElement('p');reason.textContent=t.not_connected;area.append(reason)}}
 function tracks(){q('#filter').placeholder=t.filter;const draw=()=>{const filter=q('#filter').value.toLowerCase();const rows=state.today.tracks.filter(track=>`${track.track_name||''} ${track.artist_name||''}`.toLowerCase().includes(filter)).sort((a,b)=>{const x=a[sortKey]||'',y=b[sortKey]||'';return x>y?sortDirection:x<y?-sortDirection:0});const body=q('#tracks');body.replaceChildren(...rows.map(track=>{const row=document.createElement('tr');['track_name','artist_name','combined_score','play_count','last_played'].forEach(key=>{const cell=document.createElement('td');cell.textContent=key==='combined_score'?Number(track[key]||0).toFixed(1):(track[key]||'—');row.append(cell)});return row}))};q('#filter').oninput=draw;document.querySelectorAll('[data-sort]').forEach(header=>header.onclick=()=>{const key=header.dataset.sort;sortDirection=sortKey===key?-sortDirection:-1;sortKey=key;draw()});draw()}load().catch(error=>message(error.message,'error'));

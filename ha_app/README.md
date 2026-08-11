@@ -63,45 +63,13 @@ The container build can also be checked without Home Assistant from the
 repository root with `docker build -f ha_app/Dockerfile .`. This repository
 does not install or modify anything on a Home Assistant instance.
 
-## Configuration and secrets
+## Spotify connection
 
-The app configuration contains:
-
-- `spotify_client_id`: Spotify Developer client ID.
-- `spotify_client_secret`: sensitive/masked Spotify Developer client secret.
-
-Neither value is committed, written to the project code, returned by the
-health endpoint, or logged. The start script reads Supervisor's private
-`/data/options.json` directly, and the service supplies the values only as
-process environment for the existing engine.
-
-Saving settings does not authorize Spotify. When Spotify is not connected, the
-Ingress panel shows a **Connect Spotify** action and the exact redirect URI to
-register in the Spotify Developer Dashboard. **Spotify requires this callback
-to use HTTPS.** Open Home Assistant through its configured HTTPS external URL
-first; if the current Ingress URL is HTTP, the button is disabled and no OAuth
-request is started. Register the exact displayed URI verbatim (it contains the
-current Home Assistant Ingress path), then use the button. The browser returns
-through Ingress, where the add-on exchanges the authorization code and stores
-only Spotify's token cache under `/data`. The panel then shows Spotify as
-connected and enables Spotify actions. Client secret, bridge token,
-authorization code, and access/refresh tokens are never shown or logged.
-
-Until authorization is completed, the service stays up with
-`spotify_status=not_connected` and reports a healthy watchdog response. It
-does not poll or schedule pipeline work itself.
-
-## Local Spotify login (Windows)
-
-No public address, port forwarding, Nabu Casa, DuckDNS, or reverse proxy is required.
-
-1. In the Spotify Developer Dashboard register exactly `http://127.0.0.1:8888/callback` as a redirect URI.
-2. In authenticated Ingress choose **Prepare Windows login** and save `playlist-assistant-pairing.json`.
-3. On Windows run `python tools/spotify_local_login.py --pairing playlist-assistant-pairing.json` from this project.
-4. Upload the resulting encrypted `spotify-token-import.json` in Ingress within ten minutes.
-5. After Connected is displayed, Windows is no longer needed.
-
-The pairing private key and secret exist only in add-on memory; a restart invalidates them. The Windows tool listens only on `127.0.0.1:8888`; this fixed port must be free and no alternative host or port is used. It uses Authorization Code with PKCE and never receives the client secret. The import uses X25519, HKDF-SHA256, and AES-256-GCM. Tokens, authorization codes, PKCE values, and pairing secrets are never returned by status APIs or logged. Starting a new pairing replaces the old one; deleting the OAuth cache requires a new pairing.
+Spotify is linked only in the Playlist Assistant Home Assistant integration.
+The add-on has no Spotify options, client secret, token cache, or local login.
+It calls the integration's narrow, Supervisor-authenticated proxy; Home
+Assistant keeps OAuth access and refresh tokens in Core. Ingress reflects that
+proxy connection state and does not offer a token import.
 
 ## Persistent data, logs, and health
 
