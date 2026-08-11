@@ -158,6 +158,21 @@ class SpotifyConnectionTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('SPOTIFY_SCOPE = "user-read-private"', constants)
         self.assertIn('SPOTIFY_REDIRECT_URI = "https://my.home-assistant.io/redirect/oauth"', constants)
 
+    def test_application_credentials_exposes_the_dashboard_as_a_placeholder(self):
+        application_credentials = importlib.import_module("custom_components.playlist_assistant.application_credentials")
+
+        placeholders = self._asyncioRunner.run(
+            application_credentials.async_get_description_placeholders(object())
+        )
+
+        self.assertEqual(
+            placeholders,
+            {
+                "spotify_developer_dashboard_url": "https://developer.spotify.com/dashboard",
+                "redirect_uri": "https://my.home-assistant.io/redirect/oauth",
+            },
+        )
+
     def test_reauth_reuses_managed_credential_implementation(self):
         config_flow = importlib.import_module("custom_components.playlist_assistant.config_flow")
         flow = object.__new__(config_flow.ConfigFlow)

@@ -1,1 +1,17 @@
-{"domain":"playlist_assistant","name":"Playlist Assistant","version":"0.3.0","documentation":"https://github.com/RolandFran/playlist-assistant","config_flow":true,"dependencies":["application_credentials","auth"],"requirements":[],"codeowners":["@RolandFran"]}
+{
+  "domain": "playlist_assistant",
+  "name": "Playlist Assistant",
+  "codeowners": [
+    "@RolandFran"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "application_credentials",
+    "auth"
+  ],
+  "documentation": "https://github.com/RolandFran/playlist-assistant",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/RolandFran/playlist-assistant/issues",
+  "requirements": [],
+  "version": "0.3.0"
+}

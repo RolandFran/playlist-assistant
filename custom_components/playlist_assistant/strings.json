@@ -14,6 +14,6 @@
     }
   },
   "application_credentials": {
-    "description": "Create Spotify credentials in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard). Register `https://my.home-assistant.io/redirect/oauth` as the redirect URI, then enter the credentials here."
+    "description": "Create Spotify credentials in the [Spotify Developer Dashboard]({spotify_developer_dashboard_url}). Register `{redirect_uri}` as the redirect URI, then enter the credentials here."
   }
 }
