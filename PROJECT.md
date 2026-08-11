@@ -32,6 +32,10 @@ The app should use Home Assistant/Supervisor capabilities, including:
 
 The playlist engine remains logically separate from the existing Home Assistant system. Existing HA configurations, integrations, and Node-RED flows should not need to change for the core function.
 
+## Versioning
+
+The Custom Integration and Home Assistant add-on have independent SemVer versions; they are never artificially synchronized. For each component, PATCH is a bugfix without a feature, MINOR is a backward-compatible feature, and MAJOR is an incompatible change or stable development jump. The current OAuth proof therefore keeps the Custom Integration at `0.3.0` and the add-on at `0.1.10`.
+
 ## Central database
 
 File: `playlist_assistant.db`

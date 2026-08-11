@@ -20,3 +20,7 @@ class PlaylistConnection(_BridgeEntity):
     _attr_unique_id = "playlist_assistant_connection"
     @property
     def native_value(self): return self.coordinator.data.get("spotify", {}).get("state", "not_connected")
+    @property
+    def extra_state_attributes(self):
+        profile = self.coordinator.data.get("spotify", {})
+        return {key: profile[key] for key in ("account_id", "display_name") if key in profile}

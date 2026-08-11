@@ -1,0 +1,19 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect Spotify"
+      },
+      "reauth_confirm": {
+        "title": "Reconnect Spotify",
+        "description": "The Playlist Assistant Spotify connection needs to be authorized again."
+      }
+    },
+    "abort": {
+      "reauth_successful": "Spotify has been reconnected."
+    }
+  },
+  "application_credentials": {
+    "description": "Create Spotify credentials in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard). Register `https://my.home-assistant.io/redirect/oauth` as the redirect URI, then enter the credentials here."
+  }
+}
