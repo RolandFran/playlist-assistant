@@ -1,0 +1,15 @@
+sync:
+  name: Sync
+  description: Synchronize listening history and source playlists.
+
+preview:
+  name: Preview
+  description: Generate a preview of the next Today playlist without publishing it.
+
+publish:
+  name: Publish
+  description: Publish the current Today playlist.
+
+run:
+  name: Run
+  description: Run the complete scheduled Playlist Assistant workflow.

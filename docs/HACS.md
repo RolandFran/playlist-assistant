@@ -19,9 +19,9 @@ release, add an approved square PNG icon as:
 
 `brand/icon.png`
 
-This is the repository-root `brand` directory required by HACS for local
-custom-integration brand assets. The icon should follow the current Home
-Assistant brand-image requirements.
+This is the `brand` directory inside the custom integration, where HACS looks
+for local custom-integration brand assets. The icon should follow the current
+Home Assistant brand-image requirements.
 
 ## GitHub repository settings
 

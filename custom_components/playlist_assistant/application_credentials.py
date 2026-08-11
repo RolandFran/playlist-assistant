@@ -31,3 +31,8 @@ async def async_get_auth_implementation(
         SPOTIFY_AUTHORIZE_URL,
         SPOTIFY_TOKEN_URL,
     )
+
+
+async def async_get_description_placeholders(hass: HomeAssistant) -> dict[str, str]:
+    """Return the Spotify dashboard URL for the credentials dialog."""
+    return {"spotify_developer_dashboard_url": "https://developer.spotify.com/dashboard"}

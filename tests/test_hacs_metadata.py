@@ -19,7 +19,7 @@ def test_hacs_uses_standard_integration_layout():
 
 
 def test_hacs_brand_icon_is_present():
-    icon = ROOT / "brand" / "icon.png"
+    icon = INTEGRATION / "brand" / "icon.png"
 
     assert icon.is_file()
     assert icon.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
@@ -31,6 +31,14 @@ def test_home_assistant_manifest_has_hacs_metadata():
     assert manifest["domain"] == "playlist_assistant"
     assert manifest["name"] == "Playlist Assistant"
     assert manifest["version"] == "0.3.0"
+    assert manifest["iot_class"] == "cloud_polling"
     assert manifest["documentation"] == "https://github.com/RolandFran/playlist-assistant"
     assert manifest["issue_tracker"] == "https://github.com/RolandFran/playlist-assistant/issues"
     assert manifest["codeowners"] == ["@RolandFran"]
+
+
+def test_registered_services_are_documented():
+    services = (INTEGRATION / "services.yaml").read_text(encoding="utf-8")
+
+    for service in ("sync", "preview", "publish", "run"):
+        assert f"{service}:" in services
