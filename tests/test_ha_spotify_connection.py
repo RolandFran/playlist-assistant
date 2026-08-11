@@ -167,7 +167,10 @@ class SpotifyConnectionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             placeholders,
-            {"spotify_developer_dashboard_url": "https://developer.spotify.com/dashboard"},
+            {
+                "spotify_developer_dashboard_url": "https://developer.spotify.com/dashboard",
+                "redirect_uri": "https://my.home-assistant.io/redirect/oauth",
+            },
         )
 
     def test_reauth_reuses_managed_credential_implementation(self):
