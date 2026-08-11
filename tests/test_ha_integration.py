@@ -46,6 +46,8 @@ class _Hass:
 
 def _install_ha_stubs():
     homeassistant = types.ModuleType("homeassistant"); helpers = types.ModuleType("homeassistant.helpers")
+    exceptions = types.ModuleType("homeassistant.exceptions")
+    exceptions.OAuth2TokenRequestReauthError = type("OAuth2TokenRequestReauthError", (Exception,), {})
     components = types.ModuleType("homeassistant.components"); notification = types.SimpleNamespace(async_create=lambda *args, **kwargs: None)
     aiohttp = types.ModuleType("homeassistant.helpers.aiohttp_client"); aiohttp.async_get_clientsession = lambda hass: object()
     event = types.ModuleType("homeassistant.helpers.event")
@@ -53,9 +55,12 @@ def _install_ha_stubs():
     def daily(hass, callback, hour, minute): hass.tracks.append(("daily", hour, minute, callback)); return lambda: hass.tracks.remove(("daily", hour, minute, callback))
     event.async_track_time_interval, event.async_track_time_change = interval, daily
     update = types.ModuleType("homeassistant.helpers.update_coordinator"); update.DataUpdateCoordinator = _Coordinator
+    oauth2 = types.ModuleType("homeassistant.helpers.config_entry_oauth2_flow")
+    oauth2.OAuth2Session = object
     components.persistent_notification = notification
-    sys.modules.update({"homeassistant": homeassistant, "homeassistant.helpers": helpers, "homeassistant.components": components,
-        "homeassistant.helpers.aiohttp_client": aiohttp, "homeassistant.helpers.event": event, "homeassistant.helpers.update_coordinator": update})
+    sys.modules.update({"homeassistant": homeassistant, "homeassistant.exceptions": exceptions, "homeassistant.helpers": helpers, "homeassistant.components": components,
+        "homeassistant.helpers.aiohttp_client": aiohttp, "homeassistant.helpers.event": event, "homeassistant.helpers.update_coordinator": update,
+        "homeassistant.helpers.config_entry_oauth2_flow": oauth2})
 
 
 class IntegrationTests(unittest.IsolatedAsyncioTestCase):
