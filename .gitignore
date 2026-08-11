@@ -41,6 +41,12 @@ backup/
 backups/
 
 # ------------------------------------------------------------
+# Lokale Home-Assistant/OAuth-Testpakete
+# ------------------------------------------------------------
+playlist-assistant-ha-oauth-test-*.zip
+playlist-assistant-ha-oauth-test-*/
+
+# ------------------------------------------------------------
 # Spotify-Importdaten und Import-Helfer
 # ------------------------------------------------------------
 import/
