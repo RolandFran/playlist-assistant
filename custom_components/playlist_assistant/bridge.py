@@ -28,9 +28,20 @@ async def async_discover_addon_base_url(session):
     suffix = f"_{DOMAIN}"
     matches = [addon["slug"] for addon in addons if addon.get("slug", "").endswith(suffix)]
     if len(matches) != 1:
+        candidates = [
+            {
+                "name": addon.get("name"),
+                "slug": addon.get("slug"),
+                "repository": addon.get("repository"),
+                "installed": addon.get("installed"),
+            }
+            for addon in addons
+            if addon.get("installed")
+        ]
         raise AddonDiscoveryError(
             "Expected exactly one installed Playlist Assistant add-on; "
-            f"found {len(matches)}."
+            f"found {len(matches)}. "
+            f"Installed add-ons: {candidates!r}"
         )
 
     # Supervisor documents this as {REPO}_{SLUG}; DNS hostnames use hyphens.

@@ -39,7 +39,7 @@ class _Session:
 
 class AddonDiscoveryTests(unittest.IsolatedAsyncioTestCase):
     async def test_uses_supervisor_slug_and_dns_safe_hostname(self):
-        session = _Session({"addons": [{"slug": "59a782bb_playlist_assistant"}]})
+        session = _Session({"addons": [{"name": "Playlist Assistant", "slug": "59a782bb_playlist_assistant", "installed": "0.1.11"}]})
         with patch.dict(os.environ, {"SUPERVISOR_TOKEN": "supervisor-token"}, clear=False):
             url = await async_discover_addon_base_url(session)
 
@@ -50,7 +50,7 @@ class AddonDiscoveryTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_does_not_assume_a_repository_prefix(self):
-        session = _Session({"addons": [{"slug": "different_prefix_playlist_assistant"}]})
+        session = _Session({"addons": [{"name": "Playlist Assistant", "slug": "different_prefix_playlist_assistant", "installed": "0.1.11"}]})
         with patch.dict(os.environ, {"SUPERVISOR_TOKEN": "supervisor-token"}, clear=False):
             url = await async_discover_addon_base_url(session)
 
@@ -62,8 +62,19 @@ class AddonDiscoveryTests(unittest.IsolatedAsyncioTestCase):
                 await async_discover_addon_base_url(_Session({"addons": []}))
             with self.assertRaises(AddonDiscoveryError):
                 await async_discover_addon_base_url(
-                    _Session({"addons": [{"slug": "a_playlist_assistant"}, {"slug": "b_playlist_assistant"}]})
+                    _Session({"addons": [
+                        {"name": "Playlist Assistant", "slug": "a_playlist_assistant", "installed": "0.1"},
+                        {"name": "Playlist Assistant", "slug": "b_playlist_assistant", "installed": "0.1"},
+                    ]})
                 )
+
+    async def test_reports_safe_installed_addon_details_when_not_found(self):
+        session = _Session({"addons": [{
+            "name": "Other app", "slug": "other", "repository": "https://example.invalid/apps", "installed": "1.0",
+        }]})
+        with patch.dict(os.environ, {"SUPERVISOR_TOKEN": "supervisor-token"}, clear=False):
+            with self.assertRaisesRegex(AddonDiscoveryError, "Other app.*other.*example.invalid"):
+                await async_discover_addon_base_url(session)
 
     async def test_requires_supervisor_token(self):
         with patch.dict(os.environ, {}, clear=True):
