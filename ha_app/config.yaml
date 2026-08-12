@@ -1,6 +1,6 @@
 name: Playlist Assistant
 slug: playlist_assistant
-version: "0.1.11"
+version: "0.1.12"
 description: Creates a private Today playlist from #today-source Spotify playlists, prioritizing least-played and least-recently-played tracks.
 url: https://github.com/RolandFran/playlist-assistant
 startup: application
@@ -13,4 +13,9 @@ arch:
   - amd64
 watchdog: http://[HOST]:8099/health
 options: {}
-schema: {}
+schema:
+  # Temporary compatibility only: permits options left by add-on versions before
+  # 0.1.11. They are ignored and must not be used for Spotify authentication.
+  spotify_client_id: "str?"
+  spotify_client_secret: "password?"
+  bridge_token: "password?"

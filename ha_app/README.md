@@ -49,6 +49,14 @@ internal and the add-on publishes no host port. The token is used only in the
 `X-Playlist-Assistant-Bridge` header and never exposes Spotify credentials or
 OAuth cache data.
 
+### Upgrade from add-on versions before 0.1.11
+
+Version 0.1.12 temporarily accepts the former `spotify_client_id`,
+`spotify_client_secret`, and `bridge_token` options so Supervisor can start an
+updated installation that still contains those saved values. The add-on ignores
+them. After it has started, remove those three obsolete fields in the add-on
+Configuration page and save; they must not be used for Spotify authentication.
+
 The add-on sends schedule-change events to HA Core through the authenticated
 Supervisor Core API. The integration listens for that event and replaces its
 native callbacks immediately; no polling, shared Python objects, or LAN API is

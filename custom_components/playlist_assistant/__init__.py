@@ -8,7 +8,7 @@ async def async_setup_entry(hass, entry):
     from homeassistant.components import persistent_notification
     from homeassistant.helpers.aiohttp_client import async_get_clientsession
     from homeassistant.helpers.event import async_track_time_change, async_track_time_interval
-    from .bridge import AddonBridge
+    from .bridge import AddonBridge, async_discover_addon_base_url
     from .coordinator import PlaylistAssistantCoordinator
     bridge = None
     spotify = None
@@ -18,7 +18,11 @@ async def async_setup_entry(hass, entry):
         spotify = SpotifyApi(config_entry_oauth2_flow.OAuth2Session(hass, entry, implementation))
         # The add-on listener is private to the HA add-on network; Spotify
         # authorization itself is never delegated to it.
-        bridge = AddonBridge(async_get_clientsession(hass), "http://playlist_assistant:8098", "")
+        bridge = AddonBridge(
+            async_get_clientsession(hass),
+            await async_discover_addon_base_url(async_get_clientsession(hass)),
+            "",
+        )
     elif "url" in entry.data and "bridge_token" in entry.data:
         # Existing add-on entries remain untouched while the HA OAuth proof is added.
         bridge = AddonBridge(async_get_clientsession(hass), entry.data["url"], entry.data["bridge_token"])
