@@ -4,10 +4,9 @@ import os
 
 from aiohttp import ClientResponseError
 
-from .const import DOMAIN
-
 SUPERVISOR_ADDONS_URL = "http://supervisor/addons"
 ADDON_INGRESS_PORT = 8098
+ADDON_NAME = "Playlist Assistant"
 
 
 class AddonDiscoveryError(RuntimeError):
@@ -25,8 +24,11 @@ async def async_discover_addon_base_url(session):
         response.raise_for_status()
         addons = (await response.json()).get("addons", [])
 
-    suffix = f"_{DOMAIN}"
-    matches = [addon["slug"] for addon in addons if addon.get("slug", "").endswith(suffix)]
+    # The Supervisor has already supplied the app list. Its ``installed`` field
+    # is not stable across API versions, so identification uses the exact app
+    # name and the Supervisor-provided slug without inferring either prefix or
+    # suffix.
+    matches = [addon for addon in addons if addon.get("name") == ADDON_NAME]
     if len(matches) != 1:
         candidates = [
             {
@@ -36,16 +38,15 @@ async def async_discover_addon_base_url(session):
                 "installed": addon.get("installed"),
             }
             for addon in addons
-            if addon.get("installed")
         ]
         raise AddonDiscoveryError(
-            "Expected exactly one installed Playlist Assistant add-on; "
+            "Expected exactly one Playlist Assistant add-on; "
             f"found {len(matches)}. "
-            f"Installed add-ons: {candidates!r}"
+            f"Supervisor add-ons: {candidates!r}"
         )
 
     # Supervisor documents this as {REPO}_{SLUG}; DNS hostnames use hyphens.
-    return f"http://{matches[0].replace('_', '-')}:{ADDON_INGRESS_PORT}"
+    return f"http://{matches[0]['slug'].replace('_', '-')}:{ADDON_INGRESS_PORT}"
 
 class AddonBridge:
     def __init__(self, session, base_url, token):
