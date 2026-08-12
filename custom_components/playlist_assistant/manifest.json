@@ -1,6 +1,9 @@
 {
   "domain": "playlist_assistant",
   "name": "Playlist Assistant",
+  "after_dependencies": [
+    "http"
+  ],
   "codeowners": [
     "@RolandFran"
   ],
@@ -8,9 +11,6 @@
   "dependencies": [
     "application_credentials",
     "auth"
-  ],
-  "after_dependencies": [
-    "http"
   ],
   "documentation": "https://github.com/RolandFran/playlist-assistant",
   "iot_class": "cloud_polling",
