@@ -6,6 +6,7 @@ contains the Spotify pipeline; Home Assistant only decides when to call it.
 from __future__ import annotations
 
 import hashlib
+import sqlite3
 from datetime import datetime, timezone
 from threading import Lock
 
@@ -16,6 +17,10 @@ from run import run_history, run_publish, run_score, run_sources
 
 class PreviewRequiredError(RuntimeError):
     """Raised when Publish has no current persisted preview."""
+
+
+class SourceSyncRequiredError(RuntimeError):
+    """Raised when Preview is requested before source synchronization."""
 
 
 class PlaylistWorkflow:
@@ -45,13 +50,29 @@ class PlaylistWorkflow:
         return "preview_ready" if preview.fingerprint == self.fingerprint() else "preview_stale"
 
     def sync(self):
-        return self._execute("syncing", lambda: self.runners["history"]())
+        def work():
+            self.runners["history"]()
+            self.runners["sources"]()
+        return self._execute("syncing", work)
 
     def preview(self):
         def work():
+            if not self._has_source_schema():
+                raise SourceSyncRequiredError(
+                    "Source playlists have not been synchronized. Select Sync first."
+                )
             self.runners["score"](self.storage.load_runtime_config())
             self.storage.save_preview(self.fingerprint(), self.now())
         return self._execute("previewing", work)
+
+    def _has_source_schema(self):
+        conn = sqlite3.connect(self.paths.database_path)
+        try:
+            return conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'playlist'"
+            ).fetchone() is not None
+        finally:
+            conn.close()
 
     def publish(self):
         def work():

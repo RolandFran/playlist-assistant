@@ -26,6 +26,13 @@ def normalize(value: str | None) -> str:
     return (value or "").strip().casefold()
 
 
+def _has_table(conn, name: str) -> bool:
+    return conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (name,),
+    ).fetchone() is not None
+
+
 def select_today(candidates, size: int, artist_gap: int):
     remaining = list(candidates)
     selected = []
@@ -112,6 +119,15 @@ def main(
     conn = sqlite3.connect(paths.database_path)
 
     try:
+        if not _has_table(conn, "playlist"):
+            raise RuntimeError(
+                "Source playlists have not been synchronized. Run Sync first."
+            )
+        if not _has_table(conn, "history"):
+            raise RuntimeError(
+                "Listening history has not been synchronized. Run Sync first."
+            )
+
         playlist_rows = conn.execute("""
             SELECT
                 track_uri,

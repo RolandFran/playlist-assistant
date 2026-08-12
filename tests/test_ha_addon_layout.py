@@ -17,7 +17,7 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
         config = (ADDON / "config.yaml").read_text(encoding="utf-8")
         self.assertIn("ingress: true", config)
         self.assertIn("ingress_port: 8098", config)
-        self.assertIn('version: "0.1.13"', config)
+        self.assertIn('version: "0.1.14"', config)
         for legacy_option in ("spotify_client_id", "spotify_client_secret", "bridge_token"):
             self.assertIn(legacy_option, config)
         service = (ADDON / "service.py").read_text(encoding="utf-8")

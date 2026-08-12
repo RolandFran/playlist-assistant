@@ -368,6 +368,15 @@ def main():
         print(f"  {source['playlist_name']}")
 
     if not sources:
+        # A successful sync with no matching playlists still initializes the
+        # source schema.  Scoring can then produce an empty, valid preview
+        # instead of treating the database as never synchronized.
+        conn = sqlite3.connect(paths.database_path)
+        try:
+            create_tables(conn)
+            conn.commit()
+        finally:
+            conn.close()
         print()
         print("Keine Today Sources gefunden.")
         print("Die bestehende DB wurde nicht veraendert.")

@@ -11,11 +11,20 @@ SNAPSHOT_PREFIX = "playlist_snapshot:"
 
 
 def _fetch_sync_state(conn, key):
+    if not _table_exists(conn, "sync_state"):
+        return None
     row = conn.execute(
         "SELECT value FROM sync_state WHERE key = ?",
         (key,),
     ).fetchone()
     return row[0] if row else None
+
+
+def _table_exists(conn, name):
+    return conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (name,),
+    ).fetchone() is not None
 
 
 def build_input_state(conn):
@@ -30,7 +39,7 @@ def build_input_state(conn):
         for row in conn.execute(
             "SELECT playlist_id FROM source ORDER BY playlist_id"
         ).fetchall()
-    ]
+    ] if _table_exists(conn, "source") else []
 
     source_snapshots = [
         (row[0], row[1])
@@ -43,19 +52,19 @@ def build_input_state(conn):
             """,
             (SNAPSHOT_PREFIX + "%",),
         ).fetchall()
-    ]
+    ] if _table_exists(conn, "sync_state") else []
 
     playlist_count = conn.execute(
         "SELECT COUNT(*) FROM playlist"
-    ).fetchone()[0]
+    ).fetchone()[0] if _table_exists(conn, "playlist") else 0
 
     history_count = conn.execute(
         "SELECT COUNT(*) FROM history"
-    ).fetchone()[0]
+    ).fetchone()[0] if _table_exists(conn, "history") else 0
 
     newest_history = conn.execute(
         "SELECT MAX(played_at) FROM history"
-    ).fetchone()[0]
+    ).fetchone()[0] if _table_exists(conn, "history") else None
 
     return {
         "source_ids": source_ids,
