@@ -88,15 +88,13 @@ class PublishPrivacyTests(unittest.TestCase):
     def test_client_creates_target_with_private_non_collaborative_flags(self):
         client = SpotifyClient.__new__(SpotifyClient)
         client._sp = MagicMock()
-        client._sp.current_user.return_value = {"id": "user-id"}
         client._call = lambda _operation, function, *args, **kwargs: function(
             *args, **kwargs
         )
 
         client.create_private_playlist("Today")
 
-        client._sp.user_playlist_create.assert_called_once_with(
-            "user-id",
+        client._sp.current_user_playlist_create.assert_called_once_with(
             "Today",
             public=False,
             collaborative=False,

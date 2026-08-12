@@ -9,7 +9,7 @@ from .spotify import SpotifyApi, SpotifyAuthError, SpotifyConnectionError, Spoti
 _OPERATIONS = {
     "recently_played": ("GET", "/me/player/recently-played"), "user_playlists": ("GET", "/me/playlists"),
     "playlist_items": ("GET", "/playlists/{playlist_id}/items"), "current_user": ("GET", "/me"),
-    "create_playlist": ("POST", "/users/{user_id}/playlists"), "playlist_details": ("PUT", "/playlists/{playlist_id}/details"),
+    "create_playlist": ("POST", "/me/playlists"), "playlist_details": ("PUT", "/playlists/{playlist_id}"),
     "replace_items": ("PUT", "/playlists/{playlist_id}/items"), "append_items": ("POST", "/playlists/{playlist_id}/items"),
 }
 
