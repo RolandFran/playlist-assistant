@@ -4,7 +4,7 @@ from __future__ import annotations
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.helpers import config_entry_oauth2_flow
 from .const import DOMAIN
-from .spotify import SpotifyApi, SpotifyAuthError, SpotifyConnectionError
+from .spotify import SpotifyApi, SpotifyAuthError, SpotifyConnectionError, SpotifyRequestError
 
 _OPERATIONS = {
     "recently_played": ("GET", "/me/player/recently-played"), "user_playlists": ("GET", "/me/playlists"),
@@ -25,6 +25,8 @@ class SpotifyProxyView(HomeAssistantView):
             implementation = await config_entry_oauth2_flow.async_get_config_entry_implementation(self.hass, entry)
             api = SpotifyApi(config_entry_oauth2_flow.OAuth2Session(self.hass, entry, implementation))
             return self.json(await api.async_request(method, template.format(**body.get("path", {})), params=body.get("params"), json=body.get("json")))
+        except SpotifyRequestError as error:
+            return self.json({"error": error.detail}, status_code=error.status)
         except (KeyError, StopIteration, SpotifyAuthError, SpotifyConnectionError):
             return self.json({"error": "Spotify connection is unavailable."}, status_code=400)
 

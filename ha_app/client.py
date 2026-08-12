@@ -41,6 +41,23 @@ DEFAULT_CACHE_PATH = ".cache-playlist-assistant"
 
 logger = logging.getLogger("playlist_assistant.spotify")
 
+
+def _safe_proxy_error_detail(error):
+    """Return a bounded, credential-free message from the proxy response."""
+    try:
+        payload = json.loads(error.read().decode("utf-8", errors="replace"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return "No error detail supplied."
+
+    if not isinstance(payload, dict):
+        return "Invalid error response from proxy."
+
+    detail = payload.get("error") or payload.get("message")
+    if not isinstance(detail, str) or not detail.strip():
+        return "No error detail supplied."
+    return detail.strip()[:500]
+
+
 class _ProxySpotify:
     """Spotipy-shaped adapter; credentials remain in Home Assistant Core."""
     def __init__(self, endpoint, token): self.endpoint, self.token = endpoint, token
@@ -51,7 +68,18 @@ class _ProxySpotify:
             with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
                 return json.loads(response.read() or b"{}")
         except urllib.error.HTTPError as error:
-            raise SpotifyApiError("Spotify proxy request failed.", http_status=error.code) from error
+            detail = _safe_proxy_error_detail(error)
+            logger.error(
+                "spotify_proxy_failed operation=%s status=%s detail=%s",
+                operation,
+                error.code,
+                detail,
+            )
+            raise SpotifyApiError(
+                f"Spotify proxy request failed (HTTP {error.code}): {detail}",
+                http_status=error.code,
+                operation=operation,
+            ) from error
     def current_user_playlists(self, **params): return self._call("user_playlists", params=params)
     def playlist_items(self, playlist_id, **params): return self._call("playlist_items", path={"playlist_id": playlist_id}, params=params)
     def current_user_recently_played(self, **params): return self._call("recently_played", params=params)

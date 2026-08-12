@@ -18,6 +18,31 @@ class SpotifyConnectionError(Exception):
     """Spotify could not be reached or returned an invalid response."""
 
 
+class SpotifyRequestError(Exception):
+    """A safe Spotify API failure suitable for the internal add-on proxy."""
+
+    def __init__(self, status: int, detail: str) -> None:
+        self.status = status
+        self.detail = detail
+
+
+async def _safe_error_detail(response) -> str:
+    try:
+        payload = await response.json()
+    except (ClientError, ValueError):
+        return "Spotify returned no readable error detail."
+    if not isinstance(payload, dict):
+        return "Spotify returned an invalid error response."
+    error = payload.get("error")
+    if isinstance(error, dict):
+        detail = error.get("message")
+    else:
+        detail = error or payload.get("message")
+    if not isinstance(detail, str) or not detail.strip():
+        return "Spotify returned no error detail."
+    return detail.strip()[:500]
+
+
 class SpotifyApi:
     """Fetch only the profile needed to prove the HA-side connection."""
 
@@ -29,7 +54,7 @@ class SpotifyApi:
         try:
             response = await self._session.async_request("GET", SPOTIFY_API_ME_URL)
             async with response:
-                if response.status in (401, 403):
+                if response.status == 401:
                     raise SpotifyAuthError
                 response.raise_for_status()
                 profile = await response.json()
@@ -54,11 +79,16 @@ class SpotifyApi:
             async with response:
                 if response.status in (401, 403):
                     raise SpotifyAuthError
+                if response.status >= 400:
+                    raise SpotifyRequestError(
+                        response.status,
+                        await _safe_error_detail(response),
+                    )
                 response.raise_for_status()
                 if response.status == 204:
                     return {}
                 payload = await response.json()
-        except (SpotifyAuthError, OAuth2TokenRequestReauthError):
+        except (SpotifyAuthError, SpotifyRequestError, OAuth2TokenRequestReauthError):
             raise
         except (ClientError, TimeoutError, ValueError) as err:
             raise SpotifyConnectionError from err
