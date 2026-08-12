@@ -93,7 +93,7 @@ class _ProxySpotify:
         parsed = urlparse(next_url or "")
         query = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
         if parsed.path == "/v1/me/playlists": return self._call("user_playlists", params=query)
-        if parsed.path.startswith("/v1/playlists/") and parsed.path.endswith("/tracks"):
+        if parsed.path.startswith("/v1/playlists/") and parsed.path.endswith("/items"):
             return self._call("playlist_items", path={"playlist_id": parsed.path.split("/")[3]}, params=query)
         if parsed.path == "/v1/me/player/recently-played": return self._call("recently_played", params=query)
         raise SpotifyApiError("Spotify proxy returned an unsupported page.")
@@ -336,8 +336,6 @@ class SpotifyClient:
         normalized = dict(playlist)
 
         items_info = playlist.get("items")
-        if not isinstance(items_info, dict):
-            items_info = playlist.get("tracks")
         if not isinstance(items_info, dict):
             items_info = {}
 

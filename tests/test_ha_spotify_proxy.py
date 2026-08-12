@@ -2,6 +2,7 @@ import json
 import os
 import unittest
 from io import BytesIO
+from pathlib import Path
 from urllib.error import HTTPError
 from unittest.mock import patch
 
@@ -44,7 +45,7 @@ class ProxyClientTests(unittest.TestCase):
     def test_playlist_items_follow_spotify_pagination_parameters(self):
         requests = []
         responses = iter((
-            _Response({"items": [{"item": {"uri": "spotify:track:1"}}], "next": "https://api.spotify.com/v1/playlists/playlist/tracks?limit=50&offset=50"}),
+            _Response({"items": [{"item": {"uri": "spotify:track:1"}}], "next": "https://api.spotify.com/v1/playlists/playlist/items?limit=50&offset=50"}),
             _Response({"items": [{"item": {"uri": "spotify:track:2"}}], "next": None}),
         ))
         def open_request(request, timeout):
@@ -58,6 +59,14 @@ class ProxyClientTests(unittest.TestCase):
         self.assertEqual(requests[1]["operation"], "playlist_items")
         self.assertEqual(requests[1]["path"], {"playlist_id": "playlist"})
         self.assertEqual(requests[1]["params"], {"limit": "50", "offset": "50"})
+
+    def test_proxy_routes_all_playlist_item_operations_to_current_items_endpoint(self):
+        api = Path("custom_components/playlist_assistant/api.py").read_text(encoding="utf-8")
+
+        self.assertIn('"playlist_items": ("GET", "/playlists/{playlist_id}/items")', api)
+        self.assertIn('"replace_items": ("PUT", "/playlists/{playlist_id}/items")', api)
+        self.assertIn('"append_items": ("POST", "/playlists/{playlist_id}/items")', api)
+        self.assertNotIn('/playlists/{playlist_id}/tracks', api)
 
     def test_playlist_item_proxy_failure_logs_safe_status_and_spotify_detail(self):
         error = HTTPError(

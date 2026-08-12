@@ -309,8 +309,6 @@ class SpotifyClient:
 
         items_info = playlist.get("items")
         if not isinstance(items_info, dict):
-            items_info = playlist.get("tracks")
-        if not isinstance(items_info, dict):
             items_info = {}
 
         normalized["item_total"] = items_info.get("total")

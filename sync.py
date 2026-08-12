@@ -57,13 +57,13 @@ def find_today_sources(client):
         if SOURCE_MARKER.lower() not in description.lower():
             continue
 
-        tracks_info = playlist.get("tracks") or {}
+        items_info = playlist.get("items") or {}
 
         sources.append({
             "playlist_id": playlist_id,
             "playlist_name": playlist.get("name") or playlist_id,
             "snapshot_id": playlist.get("snapshot_id"),
-            "spotify_track_total": tracks_info.get("total"),
+            "spotify_track_total": items_info.get("total"),
         })
 
     return sources
@@ -75,10 +75,6 @@ def normalize_playlist_items(items):
 
     for playlist_item in items:
         track = playlist_item.get("item")
-
-        # Compatibility with Spotipy/API versions that expose "track".
-        if track is None:
-            track = playlist_item.get("track")
 
         if not track:
             continue
