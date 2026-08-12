@@ -35,7 +35,17 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
         self.assertNotIn("spotify/import", frontend)
         panel = (ADDON / "ui" / "index.html").read_text(encoding="utf-8")
         self.assertIn('data-i18n="playlist_preview"', panel)
+        self.assertIn('class="dashboard-grid"', panel)
+        self.assertIn('class="playlist-preview"', panel)
+        self.assertIn('class="dashboard-sidebar"', panel)
+        self.assertLess(panel.index('class="playlist-preview"'), panel.index('class="dashboard-sidebar"'))
         self.assertNotIn('data-i18n="today"', panel)
+        stylesheet = (ADDON / "ui" / "app.css").read_text(encoding="utf-8")
+        self.assertIn('grid-template-columns:minmax(0,1.85fr) minmax(18rem,1fr)', stylesheet)
+        self.assertIn('.playlist-preview{max-height:calc(100vh - 9rem);overflow-y:auto}', stylesheet)
+        self.assertIn('.dashboard-sidebar{position:sticky', stylesheet)
+        self.assertIn('@media (max-width:900px){', stylesheet)
+        self.assertIn('.dashboard-grid{grid-template-columns:1fr}', stylesheet)
         for name in (
             "requirements.txt", "service.py", "control_panel.py", "workflow.py",
             "run.py", "application_paths.py", "application_storage.py",
