@@ -31,8 +31,8 @@ class _OAuthSession:
         self.response = response
         self.requests = []
 
-    async def async_request(self, method, url):
-        self.requests.append((method, url))
+    async def async_request(self, method, url, **kwargs):
+        self.requests.append((method, url, kwargs))
         return self.response
 
 
@@ -125,7 +125,7 @@ class SpotifyConnectionTests(unittest.IsolatedAsyncioTestCase):
     async def test_me_request_exposes_only_safe_profile_fields(self):
         session = _OAuthSession(_Response(200, {"id": "account-123", "display_name": "Ada"}))
         profile = await self.spotify.SpotifyApi(session).async_get_profile()
-        self.assertEqual(session.requests, [("GET", "https://api.spotify.com/v1/me")])
+        self.assertEqual(session.requests, [("GET", "https://api.spotify.com/v1/me", {})])
         self.assertEqual(profile, {"account_id": "account-123", "display_name": "Ada"})
 
     async def test_unauthorized_me_marks_reauth_required_and_starts_ha_reauth(self):
@@ -138,6 +138,21 @@ class SpotifyConnectionTests(unittest.IsolatedAsyncioTestCase):
         data = await coordinator._async_update_data()
         self.assertEqual(data["spotify"], {"state": "reauth_required"})
         self.assertEqual(entry.calls, 1)
+
+    async def test_proxy_request_keeps_401_as_an_auth_error(self):
+        api = self.spotify.SpotifyApi(_OAuthSession(_Response(401, {"error": {"message": "Unauthorized"}})))
+
+        with self.assertRaises(self.spotify.SpotifyAuthError):
+            await api.async_request("GET", "/playlists/source/tracks")
+
+    async def test_proxy_request_keeps_403_spotify_detail(self):
+        api = self.spotify.SpotifyApi(_OAuthSession(_Response(403, {"error": {"message": "Insufficient client scope"}})))
+
+        with self.assertRaises(self.spotify.SpotifyRequestError) as caught:
+            await api.async_request("GET", "/playlists/source/tracks")
+
+        self.assertEqual(caught.exception.status, 403)
+        self.assertEqual(caught.exception.detail, "Insufficient client scope")
 
     def test_config_flow_requests_only_profile_scope_and_exact_redirect(self):
         application_credentials = importlib.import_module("custom_components.playlist_assistant.application_credentials")

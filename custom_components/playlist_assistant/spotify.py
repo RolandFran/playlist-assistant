@@ -77,7 +77,7 @@ class SpotifyApi:
         try:
             response = await self._session.async_request(method, SPOTIFY_API_URL + path, params=params, json=json)
             async with response:
-                if response.status in (401, 403):
+                if response.status == 401:
                     raise SpotifyAuthError
                 if response.status >= 400:
                     raise SpotifyRequestError(
