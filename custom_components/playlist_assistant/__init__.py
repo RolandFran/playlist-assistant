@@ -16,11 +16,18 @@ async def async_setup_entry(hass, entry):
         from homeassistant.helpers import config_entry_oauth2_flow
         implementation = await config_entry_oauth2_flow.async_get_config_entry_implementation(hass, entry)
         spotify = SpotifyApi(config_entry_oauth2_flow.OAuth2Session(hass, entry, implementation))
+        # The add-on listener is private to the HA add-on network; Spotify
+        # authorization itself is never delegated to it.
+        bridge = AddonBridge(async_get_clientsession(hass), "http://playlist_assistant:8098", "")
     elif "url" in entry.data and "bridge_token" in entry.data:
         # Existing add-on entries remain untouched while the HA OAuth proof is added.
         bridge = AddonBridge(async_get_clientsession(hass), entry.data["url"], entry.data["bridge_token"])
     else:
         return False
+    if spotify and not hass.data.get(f"{DOMAIN}_api_registered"):
+        from .api import async_register_api
+        async_register_api(hass)
+        hass.data[f"{DOMAIN}_api_registered"] = True
     coordinator = PlaylistAssistantCoordinator(hass, bridge, spotify, entry)
     async def execute(action):
         try: return await coordinator.async_execute(action)
@@ -44,15 +51,14 @@ async def async_setup_entry(hass, entry):
         await coordinator.async_schedule_changed()
     unsubscribe_event = hass.bus.async_listen("playlist_assistant_schedule_changed", schedule_changed) if bridge else lambda: None
     async def handler(call): await execute(call.service)
-    if bridge:
-        for action in ("sync", "preview", "publish", "run"): hass.services.async_register(DOMAIN, action, handler)
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {"bridge": bridge, "coordinator": coordinator, "schedule": schedule, "event": unsubscribe_event}
+    for action in ("sync", "preview", "publish", "run"):
+        hass.services.async_register(DOMAIN, action, handler)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {"entry": entry, "bridge": bridge, "spotify": spotify, "coordinator": coordinator, "schedule": schedule, "event": unsubscribe_event}
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 async def async_unload_entry(hass, entry):
     data = hass.data[DOMAIN].pop(entry.entry_id)
     data["schedule"].stop(); data["event"]()
-    if data["bridge"]:
-        for action in ("sync", "preview", "publish", "run"): hass.services.async_remove(DOMAIN, action)
+    for action in ("sync", "preview", "publish", "run"): hass.services.async_remove(DOMAIN, action)
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

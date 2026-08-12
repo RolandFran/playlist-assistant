@@ -7,6 +7,8 @@ from homeassistant.helpers.config_entry_oauth2_flow import OAuth2Session
 
 from .const import SPOTIFY_API_ME_URL
 
+SPOTIFY_API_URL = "https://api.spotify.com/v1"
+
 
 class SpotifyAuthError(Exception):
     """Spotify rejected the current authorization."""
@@ -44,3 +46,22 @@ class SpotifyApi:
             "account_id": account_id,
             "display_name": display_name if isinstance(display_name, str) else account_id,
         }
+
+    async def async_request(self, method: str, path: str, *, params=None, json=None) -> dict:
+        """Perform one allow-listed Spotify Web API request with HA-owned OAuth."""
+        try:
+            response = await self._session.async_request(method, SPOTIFY_API_URL + path, params=params, json=json)
+            async with response:
+                if response.status in (401, 403):
+                    raise SpotifyAuthError
+                response.raise_for_status()
+                if response.status == 204:
+                    return {}
+                payload = await response.json()
+        except (SpotifyAuthError, OAuth2TokenRequestReauthError):
+            raise
+        except (ClientError, TimeoutError, ValueError) as err:
+            raise SpotifyConnectionError from err
+        if not isinstance(payload, dict):
+            raise SpotifyConnectionError
+        return payload

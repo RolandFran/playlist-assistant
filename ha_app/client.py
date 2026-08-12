@@ -2,6 +2,9 @@ import json
 import logging
 import os
 import time
+import urllib.error
+import urllib.request
+from urllib.parse import parse_qs, urlparse
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, Iterable, Optional
@@ -37,6 +40,35 @@ DEFAULT_SCOPE = " ".join(
 DEFAULT_CACHE_PATH = ".cache-playlist-assistant"
 
 logger = logging.getLogger("playlist_assistant.spotify")
+
+class _ProxySpotify:
+    """Spotipy-shaped adapter; credentials remain in Home Assistant Core."""
+    def __init__(self, endpoint, token): self.endpoint, self.token = endpoint, token
+    def _call(self, operation, *, path=None, params=None, json_body=None):
+        payload = json.dumps({"operation": operation, "path": path or {}, "params": params, "json": json_body}).encode()
+        request = urllib.request.Request(self.endpoint, data=payload, method="POST", headers={"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
+                return json.loads(response.read() or b"{}")
+        except urllib.error.HTTPError as error:
+            raise SpotifyApiError("Spotify proxy request failed.", http_status=error.code) from error
+    def current_user_playlists(self, **params): return self._call("user_playlists", params=params)
+    def playlist_items(self, playlist_id, **params): return self._call("playlist_items", path={"playlist_id": playlist_id}, params=params)
+    def current_user_recently_played(self, **params): return self._call("recently_played", params=params)
+    def current_user(self): return self._call("current_user")
+    def user_playlist_create(self, user_id, name, **kwargs): return self._call("create_playlist", path={"user_id": user_id}, json_body={"name": name, **kwargs})
+    def playlist_change_details(self, playlist_id, **kwargs): return self._call("playlist_details", path={"playlist_id": playlist_id}, json_body=kwargs)
+    def playlist_replace_items(self, playlist_id, uris): return self._call("replace_items", path={"playlist_id": playlist_id}, json_body={"uris": uris})
+    def playlist_add_items(self, playlist_id, uris): return self._call("append_items", path={"playlist_id": playlist_id}, json_body={"uris": uris})
+    def next(self, result):
+        next_url = result.get("next")
+        parsed = urlparse(next_url or "")
+        query = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
+        if parsed.path == "/v1/me/playlists": return self._call("user_playlists", params=query)
+        if parsed.path.startswith("/v1/playlists/") and parsed.path.endswith("/tracks"):
+            return self._call("playlist_items", path={"playlist_id": parsed.path.split("/")[3]}, params=query)
+        if parsed.path == "/v1/me/player/recently-played": return self._call("recently_played", params=query)
+        raise SpotifyApiError("Spotify proxy returned an unsupported page.")
 
 
 class SpotifyClientError(RuntimeError):
@@ -158,47 +190,15 @@ class SpotifyClient:
         cache_path: str | None = None,
         open_browser: bool | None = None,
     ):
-        load_dotenv()
-
-        client_id = os.getenv("SPOTIFY_CLIENT_ID")
-        client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
-        redirect_uri = os.getenv(
-            "SPOTIFY_REDIRECT_URI",
-            "http://127.0.0.1:8888/callback",
-        )
-
-        if not client_id or not client_secret:
-            raise RuntimeError(
-                "Spotify-Zugangsdaten fehlen. "
-                "Pruefe SPOTIFY_CLIENT_ID und SPOTIFY_CLIENT_SECRET in .env."
-            )
-
-        # A host may place the authorization cache in its persistent data
-        # directory. The local CLI keeps its established project-local cache
-        # unless it explicitly supplies this environment handoff.
-        cache_path = cache_path or os.getenv("SPOTIFY_CACHE_PATH", DEFAULT_CACHE_PATH)
-        if open_browser is None:
-            open_browser = os.getenv("SPOTIFY_OPEN_BROWSER", "true").lower() not in {
-                "0", "false", "no",
-            }
-
-        self._auth_manager = SpotifyOAuth(
-            client_id=client_id,
-            client_secret=client_secret,
-            redirect_uri=redirect_uri,
-            scope=scope,
-            cache_path=cache_path,
-            open_browser=open_browser,
-        )
-
-        self._sp = spotipy.Spotify(
-            auth_manager=self._auth_manager,
-            requests_timeout=REQUEST_TIMEOUT_SECONDS,
-            retries=0,
-            status_retries=0,
-        )
-
-        self._request_count = 0
+        proxy_endpoint = os.getenv("PLAYLIST_ASSISTANT_SPOTIFY_PROXY")
+        proxy_token = os.getenv("SUPERVISOR_TOKEN")
+        if proxy_endpoint:
+            if not proxy_token:
+                raise RuntimeError("Home Assistant Supervisor authorization is unavailable.")
+            self._sp = _ProxySpotify(proxy_endpoint, proxy_token)
+            self._request_count = 0
+            return
+        raise RuntimeError("The Home Assistant Spotify proxy is unavailable.")
 
     @property
     def request_count(self) -> int:

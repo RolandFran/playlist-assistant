@@ -6,7 +6,6 @@ from urllib.request import Request, urlopen
 
 from application_paths import ApplicationPaths
 from ha_app.control_panel import ControlPanel, start_ingress
-from ha_app.service import AppOptions, SpotifyPairing
 
 
 class ControlPanelTests(unittest.TestCase):
@@ -81,14 +80,7 @@ class ControlPanelTests(unittest.TestCase):
         self.assertEqual(state["spotify"], {"state": "not_connected", "available": False})
         self.assertNotIn("secret", json.dumps(state).lower())
 
-    def test_initial_ingress_state_is_json_with_an_active_pairing_session(self):
-        pairing = SpotifyPairing(
-            AppOptions("client-id", "client-secret", "bridge-secret"),
-            self.paths.data_dir / "spotify-oauth.json",
-            lambda: None,
-        )
-        pairing.prepare()
-        self.panel.pairing_state = pairing.state
+    def test_initial_ingress_state_has_no_pairing_mode(self):
         self.ingress = start_ingress(self.panel, bridge_token="bridge-secret", port=0,
                                      ingress_client_address="127.0.0.1")
         self.addCleanup(self.ingress.server_close)
@@ -98,22 +90,7 @@ class ControlPanelTests(unittest.TestCase):
             self.assertEqual(response.status, 200)
             state = json.loads(response.read())
 
-        self.assertEqual(state["spotify"], {"state": "awaiting_import", "available": False})
-        self.assertNotIn("client-secret", json.dumps(state))
-
-    def test_ingress_state_uses_a_safe_status_for_an_invalid_pairing_callback(self):
-        self.panel.pairing_state = lambda: object()
-        self.ingress = start_ingress(self.panel, bridge_token="bridge-secret", port=0,
-                                     ingress_client_address="127.0.0.1")
-        self.addCleanup(self.ingress.server_close)
-        self.addCleanup(self.ingress.shutdown)
-
-        with self.assertLogs("playlist_assistant.control_panel", "WARNING") as logs:
-            with self.request_ingress("/api/state") as response:
-                state = json.loads(response.read())
-
         self.assertEqual(state["spotify"], {"state": "not_connected", "available": False})
-        self.assertIn("invalid_pairing_state state_type=object", logs.output[0])
 
     def test_settings_api_returns_save_feedback_and_persists_values(self):
         self.ingress = start_ingress(self.panel, bridge_token="bridge-secret", port=0,
@@ -135,13 +112,9 @@ class ControlPanelTests(unittest.TestCase):
         })
         self.assertIn("settings_saved", logs.output[0])
 
-    def test_pairing_download_is_ingress_only_and_not_cached(self):
-        self.panel.pairing_prepare = lambda: {"version": 1}
+    def test_pairing_download_is_not_available(self):
         self.ingress = start_ingress(self.panel, bridge_token="bridge-secret", port=0,
                                      ingress_client_address="127.0.0.1")
         self.addCleanup(self.ingress.server_close)
         self.addCleanup(self.ingress.shutdown)
-        with self.request_ingress("/api/spotify/pairing-file") as response:
-            self.assertEqual(json.loads(response.read()), {"version": 1})
-            self.assertEqual(response.headers["Cache-Control"], "no-store")
-            self.assertIn("attachment", response.headers["Content-Disposition"])
+        with self.assertRaises(HTTPError): self.request_ingress("/api/spotify/pairing-file")
