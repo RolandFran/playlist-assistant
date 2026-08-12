@@ -22,7 +22,16 @@ async def async_discover_addon_base_url(session):
     headers = {"Authorization": f"Bearer {token}"}
     async with session.get(SUPERVISOR_ADDONS_URL, headers=headers) as response:
         response.raise_for_status()
-        addons = (await response.json()).get("addons", [])
+        payload = await response.json()
+
+    if not isinstance(payload, dict) or payload.get("result") != "ok":
+        raise AddonDiscoveryError("Supervisor add-on discovery returned an unsuccessful response.")
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        raise AddonDiscoveryError("Supervisor add-on discovery response has no data object.")
+    addons = data.get("addons")
+    if not isinstance(addons, list):
+        raise AddonDiscoveryError("Supervisor add-on discovery response has no add-ons list.")
 
     # The Supervisor has already supplied the app list. Its ``installed`` field
     # is not stable across API versions, so identification uses the exact app
