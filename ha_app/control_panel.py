@@ -158,6 +158,10 @@ def start_ingress(panel: ControlPanel, *, bridge_token: str, port: int = INGRESS
                 except (ValueError, RuntimeError) as error: return self._json(400, {"error": str(error)})
             if not self._allow_ingress(api=path.startswith("/api/")): return
             try:
+                # Actions are server-side triggers. The Ingress UI deliberately
+                # posts no payload, so body validation applies only to settings.
+                if path.startswith("/api/actions/"):
+                    return self._json(200, panel.run_action(path.rsplit("/", 1)[-1]))
                 size = int(self.headers.get("Content-Length", "0"))
                 if size < 1 or size > 64 * 1024: raise ValueError("Invalid upload size.")
                 data = json.loads(self.rfile.read(size) or b"{}")
@@ -165,7 +169,6 @@ def start_ingress(panel: ControlPanel, *, bridge_token: str, port: int = INGRESS
                     raise ValueError("JSON request body must be an object.")
                 if path == "/api/settings":
                     return self._json(200, {"ok": True, "message": "Settings saved.", "state": panel.save_settings(data)})
-                if path.startswith("/api/actions/"): return self._json(200, panel.run_action(path.rsplit("/", 1)[-1]))
                 if path.startswith("/api/"): return self._api_error(HTTPStatus.NOT_FOUND, "Unknown API endpoint.")
                 self.send_error(404)
             except (ValueError, RuntimeError) as error:

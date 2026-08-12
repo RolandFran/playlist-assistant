@@ -8,6 +8,26 @@ from application_paths import ApplicationPaths
 from ha_app.control_panel import ControlPanel, start_ingress
 
 
+class _Workflow:
+    def __init__(self):
+        self.calls = []
+
+    def preview_state(self):
+        return "idle"
+
+    def sync(self):
+        self.calls.append("sync")
+
+    def preview(self):
+        self.calls.append("preview")
+
+    def publish(self):
+        self.calls.append("publish")
+
+    def run(self):
+        self.calls.append("run")
+
+
 class ControlPanelTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -18,10 +38,10 @@ class ControlPanelTests(unittest.TestCase):
     def tearDown(self):
         self.directory.cleanup()
 
-    def request_ingress(self, path, *, headers=None, data=None):
+    def request_ingress(self, path, *, headers=None, data=None, method=None):
         headers = headers or {}
         request = Request(f"http://127.0.0.1:{self.ingress.server_address[1]}{path}", headers=headers, data=data,
-                          method="POST" if data is not None else "GET")
+                          method=method or ("POST" if data is not None else "GET"))
         return urlopen(request)
 
     def test_state_is_secret_free_and_marks_spotify_actions_unavailable(self):
@@ -111,6 +131,21 @@ class ControlPanelTests(unittest.TestCase):
             "target_playlist_name": "Morning",
         })
         self.assertIn("settings_saved", logs.output[0])
+
+    def test_ingress_action_accepts_empty_post_body_as_a_server_side_trigger(self):
+        workflow = _Workflow()
+        self.panel = ControlPanel(self.paths, spotify_available=lambda: True, workflow=workflow)
+        self.ingress = start_ingress(self.panel, bridge_token="bridge-secret", port=0,
+                                     ingress_client_address="127.0.0.1")
+        self.addCleanup(self.ingress.server_close)
+        self.addCleanup(self.ingress.shutdown)
+
+        with self.request_ingress("/api/actions/sync", data=b"", method="POST") as response:
+            result = json.loads(response.read())
+
+        self.assertEqual(response.status, 200)
+        self.assertEqual(workflow.calls, ["sync"])
+        self.assertEqual(result["spotify"]["state"], "connected")
 
     def test_pairing_download_is_not_available(self):
         self.ingress = start_ingress(self.panel, bridge_token="bridge-secret", port=0,
