@@ -36,7 +36,13 @@ class PlaylistAssistantCoordinator(DataUpdateCoordinator):
         self.async_set_updated_data(data)
         return data
 
-    async def async_schedule_changed(self):
-        # An Ingress save provides the new cadence in the HA event, but a
-        # bridge state refresh keeps all three entities coherent too.
-        await self.async_request_refresh()
+    async def async_schedule_changed(self, schedule):
+        """Publish the accepted service payload without another add-on fetch.
+
+        The Ingress request cannot be considered saved until this handler has
+        installed the callbacks.  Refreshing the bridge here would instead
+        read the old persisted values while that request is still in flight.
+        """
+        data = dict(self.data or {})
+        data["schedule"] = dict(schedule)
+        self.async_set_updated_data(data)

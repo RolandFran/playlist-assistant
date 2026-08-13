@@ -24,6 +24,14 @@ APP_DIR = Path(__file__).parent
 LOGGER = logging.getLogger("playlist_assistant.control_panel")
 
 
+class SettingsError(ValueError):
+    """A settings error that the Ingress client can attach to one field."""
+
+    def __init__(self, message: str, field: str | None = None):
+        super().__init__(message)
+        self.field = field
+
+
 class ControlPanel:
     """Read and change only persistent app state under the selected data path."""
 
@@ -57,22 +65,33 @@ class ControlPanel:
 
     def save_settings(self, values: dict) -> dict:
         current = self.storage.load_runtime_config()
-        config = RuntimeConfig(
-            today_size=int(values.get("today_size", current.today_size)),
-            rare_weight=int(values.get("rare_weight", current.rare_weight)),
-            artist_gap=int(values.get("artist_gap", current.artist_gap)),
-            history_poll_minutes=int(values.get("history_poll_minutes", current.history_poll_minutes)),
-            today_schedule_enabled=bool(values.get("today_schedule_enabled", current.today_schedule_enabled)),
-            today_schedule_time=str(values.get("today_schedule_time", current.today_schedule_time)),
-        )
+        try:
+            config = RuntimeConfig(
+                today_size=int(values.get("today_size", current.today_size)),
+                rare_weight=int(values.get("rare_weight", current.rare_weight)),
+                artist_gap=int(values.get("artist_gap", current.artist_gap)),
+                history_poll_minutes=int(values.get("history_poll_minutes", current.history_poll_minutes)),
+                today_schedule_enabled=_as_bool(values.get("today_schedule_enabled", current.today_schedule_enabled)),
+                today_schedule_time=str(values.get("today_schedule_time", current.today_schedule_time)),
+            )
+        except (TypeError, ValueError) as error:
+            raise SettingsError(str(error), _settings_field(str(error))) from error
+        _require_limits(config)
         target_name = str(values.get("target_playlist_name", self.storage.get_target_playlist()[0])).strip()
+        if not target_name:
+            raise SettingsError("Target playlist name must not be blank.", "target_playlist_name")
+        old_target_name, old_target_id = self.storage.get_target_playlist()
         try:
             self.storage.save_runtime_config(config)
             self.storage.save_target_playlist(target_name)
             self.schedule_changed(config)
         except Exception as error:
+            # A schedule request that HA rejects must not look saved in the UI
+            # or survive as a configuration which HA never activated.
+            self.storage.save_runtime_config(current)
+            self.storage.save_target_playlist(old_target_name, old_target_id)
             LOGGER.warning("settings_save_failed error_type=%s", type(error).__name__)
-            raise
+            raise SettingsError(str(error), "today_schedule_time") from error
         active_daily = config.today_schedule_time if config.today_schedule_enabled else "disabled"
         LOGGER.info("settings_saved active_daily_schedule=%s", active_daily)
         return self.state()
@@ -105,6 +124,26 @@ class ControlPanel:
             except sqlite3.Error:
                 pass
         return [{key: item.get(key) for key in ("track_name", "artist_name", "combined_score", "play_count")} | {"last_played": last_played.get(item.get("track_uri"))} for item in tracks]
+
+
+def _as_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str) and value.lower() in {"true", "false"}:
+        return value.lower() == "true"
+    raise ValueError("today_schedule_enabled must be true or false.")
+
+
+def _settings_field(message: str) -> str | None:
+    return next((name for name in ("today_size", "rare_weight", "artist_gap", "history_poll_minutes", "today_schedule_enabled", "today_schedule_time") if name in message), None)
+
+
+def _require_limits(config: RuntimeConfig) -> None:
+    limits = {"today_size": (1, 1000), "artist_gap": (0, 100), "history_poll_minutes": (1, 1440)}
+    for name, (minimum, maximum) in limits.items():
+        value = getattr(config, name)
+        if not minimum <= value <= maximum:
+            raise SettingsError(f"{name} must be between {minimum} and {maximum}.", name)
 
 def start_ingress(panel: ControlPanel, *, bridge_token: str, port: int = INGRESS_PORT,
                   ingress_client_address: str = "172.30.32.2") -> ThreadingHTTPServer:
@@ -174,7 +213,10 @@ def start_ingress(panel: ControlPanel, *, bridge_token: str, port: int = INGRESS
                 if path.startswith("/api/"): return self._api_error(HTTPStatus.NOT_FOUND, "Unknown API endpoint.")
                 self.send_error(404)
             except (ValueError, RuntimeError) as error:
-                self._json(400, {"error": str(error)})
+                payload = {"error": str(error)}
+                if isinstance(error, SettingsError) and error.field:
+                    payload["field"] = error.field
+                self._json(400, payload)
         def _file(self, name, content_type, ingress_base_path=None):
             data = (APP_DIR / "ui" / name).read_bytes()
             if ingress_base_path is not None:

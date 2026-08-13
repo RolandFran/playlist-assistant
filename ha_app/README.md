@@ -1,6 +1,11 @@
-# Playlist Assistant Home Assistant app
+# Home Assistant app package
 
-This directory is a custom Home Assistant app package for Playlist Assistant.
+![Playlist Assistant](logo.png)
+
+Playlist Assistant brings music you already like back into rotation by building
+private Spotify playlists from your selected sources and listening history.
+
+This directory is the Home Assistant app package.
 It starts one small supervised Python service after Home Assistant has started
 (`startup: application`). It hosts only the Ingress application and connection
 reporting. The companion `playlist_assistant` custom integration owns native

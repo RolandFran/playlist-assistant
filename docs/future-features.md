@@ -94,6 +94,13 @@ Playlist Entry. A selected track should later be explainable through provenance
 such as source, score, rare and long-not-played components, selection reason,
 genre/group, pin, and replacement information.
 
+## Track diagnosis and history coverage
+
+- A future track-diagnosis view should show known plays, last play, data
+  source, URI/Track ID, score breakdown, and any distinct versions of a track.
+- A future history summary should make the covered period and total plays
+  transparent, for example `28.12.2024 – 09.08.2026 · 65,369 plays`.
+
 ## Multiple accounts and capabilities
 
 - Multiple Spotify accounts may be considered later.

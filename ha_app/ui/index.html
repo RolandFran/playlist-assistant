@@ -9,9 +9,16 @@
 </head>
 <body>
   <main>
-    <h1 data-i18n="title"></h1>
+    <header class="app-header">
+      <h1 data-i18n="title"></h1>
+      <div class="global-status" aria-label="Status">
+        <span id="spotify-status" class="status-chip"></span>
+        <span id="preview-status" class="status-chip"></span>
+        <span id="schedule-status" class="status-chip"></span>
+        <button id="help-button" type="button" aria-label="Help">?</button>
+      </div>
+    </header>
     <p id="message" role="alert"></p>
-    <p id="status"></p>
     <div class="dashboard-grid">
       <section class="playlist-preview">
         <h2 data-i18n="playlist_preview"></h2>
@@ -45,13 +52,14 @@
           <h2 data-i18n="actions"></h2>
           <div id="actions"></div>
         </section>
-        <section>
-          <h2 data-i18n="info"></h2>
-          <p data-i18n="info_description"></p>
-        </section>
       </aside>
     </div>
   </main>
+  <dialog id="help-dialog">
+    <button id="help-close" type="button" aria-label="Close">×</button>
+    <h2 data-i18n="help"></h2>
+    <dl id="help-content"></dl>
+  </dialog>
   <script src="app.js"></script>
 </body>
 </html>

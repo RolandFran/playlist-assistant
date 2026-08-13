@@ -132,6 +132,15 @@ class ControlPanelTests(unittest.TestCase):
         })
         self.assertIn("settings_saved active_daily_schedule=07:30", logs.output[0])
 
+    def test_scheduler_failure_rolls_back_settings_and_does_not_log_saved(self):
+        panel = ControlPanel(self.paths, spotify_available=lambda: False,
+                             schedule_changed=lambda _: (_ for _ in ()).throw(RuntimeError("schedule unavailable")))
+        with self.assertLogs("playlist_assistant.control_panel", "WARNING") as logs:
+            with self.assertRaisesRegex(ValueError, "schedule unavailable"):
+                panel.save_settings({"today_schedule_time": "07:30"})
+        self.assertEqual(panel.state()["settings"]["today_schedule_time"], "04:00")
+        self.assertNotIn("settings_saved", " ".join(logs.output))
+
     def test_ingress_action_accepts_empty_post_body_as_a_server_side_trigger(self):
         workflow = _Workflow()
         self.panel = ControlPanel(self.paths, spotify_available=lambda: True, workflow=workflow)

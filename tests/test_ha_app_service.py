@@ -48,3 +48,13 @@ class HomeAssistantServiceTests(unittest.TestCase):
         self.assertEqual(timeout, 5)
         self.assertEqual(request.full_url, "http://supervisor/core/api/services/playlist_assistant/reconfigure_schedule")
         self.assertEqual(json.loads(request.data), {"history_interval_minutes": 90, "daily_enabled": True, "daily_time": "17:28"})
+
+    def test_schedule_change_rejects_an_acknowledgement_with_the_wrong_shape(self):
+        class Response:
+            status = 200
+            def read(self): return b'{"ok": true}'
+            def __enter__(self): return self
+            def __exit__(self, *_): return False
+        with patch.dict(os.environ, {"SUPERVISOR_TOKEN": "token"}, clear=True), patch("ha_app.service.urllib.request.urlopen", return_value=Response()):
+            with self.assertRaisesRegex(RuntimeError, "could not activate"):
+                self.service._notify_schedule_changed(RuntimeConfig())

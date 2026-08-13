@@ -129,10 +129,13 @@ class ServiceHost:
                 if response.status < 200 or response.status >= 300:
                     raise OSError(f"Home Assistant event response was {response.status}")
                 payload = json.loads(response.read())
+            # Core's service endpoint commonly returns []; it is only an HTTP
+            # acknowledgement, never proof that a schedule callback exists.
+            # Handler/registration failures are surfaced by Core as non-2xx.
             if not isinstance(payload, list):
                 raise OSError("Home Assistant schedule service returned an invalid response.")
             active_daily = config.today_schedule_time if config.today_schedule_enabled else "disabled"
-            LOGGER.info("schedule_change_sent active_daily_schedule=%s ha_response=%s", active_daily, payload)
+            LOGGER.info("schedule_change_sent active_daily_schedule=%s ha_response=%s acknowledgement_only=true", active_daily, payload)
         except (OSError, ValueError, json.JSONDecodeError):
             LOGGER.exception("schedule_change_notification_failed")
             raise RuntimeError("Home Assistant could not activate the new schedule.") from None

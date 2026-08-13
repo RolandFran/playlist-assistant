@@ -17,7 +17,7 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
         config = (ADDON / "config.yaml").read_text(encoding="utf-8")
         self.assertIn("ingress: true", config)
         self.assertIn("ingress_port: 8098", config)
-        self.assertIn('version: "0.1.21"', config)
+        self.assertIn('version: "0.1.22"', config)
         for legacy_option in ("spotify_client_id", "spotify_client_secret", "bridge_token"):
             self.assertIn(legacy_option, config)
         service = (ADDON / "service.py").read_text(encoding="utf-8")
@@ -45,7 +45,7 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
         self.assertNotIn('data-i18n="today"', panel)
         stylesheet = (ADDON / "ui" / "app.css").read_text(encoding="utf-8")
         self.assertIn('grid-template-columns:minmax(0,1.85fr) minmax(18rem,1fr)', stylesheet)
-        self.assertIn('.playlist-preview{max-height:calc(100vh - 9rem);overflow-y:auto}', stylesheet)
+        self.assertIn('.playlist-preview{max-height:calc(100vh - 7rem);overflow-y:auto}', stylesheet)
         self.assertIn('.dashboard-sidebar{position:sticky', stylesheet)
         self.assertIn('@media (max-width:900px){', stylesheet)
         self.assertIn('.dashboard-grid{grid-template-columns:1fr}', stylesheet)

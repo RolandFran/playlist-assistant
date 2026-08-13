@@ -28,10 +28,17 @@ class NativeSchedule:
 
     def configure(self, interval_minutes, daily_enabled, daily_time):
         """Replace callbacks immediately when persisted cadence changes."""
+        # Validate before removing the working callback, so malformed service
+        # data cannot silently leave scheduling disabled.
+        if interval_minutes <= 0:
+            raise ValueError("history_interval_minutes must be positive")
+        if daily_enabled:
+            hour, minute = map(int, daily_time.split(":"))
+            if not 0 <= hour <= 23 or not 0 <= minute <= 59:
+                raise ValueError("daily_time must be HH:MM")
         self.stop()
         self._unsubscribers.append(self._register_interval(timedelta(minutes=interval_minutes), lambda *_: self._run_once(self._run_sync)))
         if daily_enabled:
-            hour, minute = map(int, daily_time.split(":"))
             self._daily_unsubscriber = self._register_daily(hour, minute, lambda *_: self._run_once(self._run_daily))
             LOGGER.info("daily_schedule_registered time=%s second=0", daily_time)
         else:
@@ -43,6 +50,7 @@ class NativeSchedule:
         self._unsubscribers = []
         if self._daily_unsubscriber is not None:
             self._daily_unsubscriber()
+            LOGGER.info("daily_schedule_callback_removed")
         self._daily_unsubscriber = None
 
 def history_gap(last_success, interval_minutes, now):

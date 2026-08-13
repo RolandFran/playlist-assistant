@@ -1,7 +1,7 @@
 name: Playlist Assistant
 slug: playlist_assistant
-version: "0.1.21"
-description: Creates a private Today playlist from #today-source Spotify playlists, prioritizing least-played and least-recently-played tracks.
+version: "0.1.22"
+description: Bring music you already like back into rotation with private Spotify playlists from your selected sources and listening history.
 url: https://github.com/RolandFran/playlist-assistant
 startup: application
 init: false
