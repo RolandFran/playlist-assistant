@@ -47,15 +47,16 @@ def _safe_proxy_error_detail(error):
     try:
         payload = json.loads(error.read().decode("utf-8", errors="replace"))
     except (OSError, ValueError, json.JSONDecodeError):
-        return "No error detail supplied."
+        return "No error detail supplied.", None
 
     if not isinstance(payload, dict):
-        return "Invalid error response from proxy."
+        return "Invalid error response from proxy.", None
 
     detail = payload.get("error") or payload.get("message")
     if not isinstance(detail, str) or not detail.strip():
-        return "No error detail supplied."
-    return detail.strip()[:500]
+        return "No error detail supplied.", None
+    reason = payload.get("reason")
+    return detail.strip()[:500], str(reason) if reason else None
 
 
 class _ProxySpotify:
@@ -68,17 +69,15 @@ class _ProxySpotify:
             with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
                 return json.loads(response.read() or b"{}")
         except urllib.error.HTTPError as error:
-            detail = _safe_proxy_error_detail(error)
+            detail, reason = _safe_proxy_error_detail(error)
             logger.error(
                 "spotify_proxy_failed operation=%s status=%s detail=%s",
                 operation,
                 error.code,
                 detail,
             )
-            raise SpotifyApiError(
-                f"Spotify proxy request failed (HTTP {error.code}): {detail}",
-                http_status=error.code,
-                operation=operation,
+            raise SpotifyException(
+                error.code, -1, detail, reason=reason, headers=error.headers
             ) from error
     def current_user_playlists(self, **params): return self._call("user_playlists", params=params)
     def playlist_items(self, playlist_id, **params): return self._call("playlist_items", path={"playlist_id": playlist_id}, params=params)
@@ -325,7 +324,7 @@ class SpotifyClient:
                     continue
 
                 raise SpotifyApiError(
-                    f"Spotify API Fehler bei {operation}: {exc}",
+                    f"Spotify API Fehler bei {operation} (HTTP {status}): {exc.msg}",
                     http_status=status,
                     operation=operation,
                 ) from exc

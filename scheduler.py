@@ -7,6 +7,7 @@ background loop, thread, service, or Home Assistant integration.
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Callable
+from threading import Lock
 
 from application_storage import ApplicationStorage
 from runtime_config import RuntimeConfig
@@ -33,42 +34,47 @@ class SchedulerPolicy:
         self._runtime = runtime
         self._storage = storage
         self._now = now or (lambda: datetime.now().astimezone())
+        self._run_lock = Lock()
 
     def run_due(self, config: RuntimeConfig | None = None) -> list[ScheduledRun]:
         """Run each due scheduled slot at most once and return its outcomes.
 
         ``now`` must return an aware datetime in the host's local timezone.
-        Attempt state is written after execution, so a completed failure waits
-        for the next normal history interval or the next daily Today slot.
+        Attempts are persisted before execution.  A process restart or a
+        failed pipeline therefore cannot make the same due slot runnable
+        again.
         """
-        local_now = self._now()
-        _require_aware_datetime(local_now)
-        config = config or self._storage.load_runtime_config()
-        state = self._storage.get_scheduler_state()
-        today_due = config.today_schedule_enabled and _today_is_due(
-            local_now, config.today_schedule_time, state.last_today_attempt_date
-        )
-        history_due = _history_is_due(
-            local_now, config.history_poll_minutes, state.last_history_attempt_at
-        )
-
-        runs = []
-        if today_due:
-            # The existing Today pipeline begins with History.  Recording both
-            # attempts avoids scheduling a second History pass beside it.
-            result = self._runtime.run_today(write=True, config=config)
-            self._storage.record_scheduler_attempts(
-                history_attempt_at=local_now,
-                today_attempt_date=local_now.date().isoformat(),
+        # ``run_due`` may be called by more than one HA callback during a
+        # reconfiguration.  Do not let a second callback observe stale state.
+        if not self._run_lock.acquire(blocking=False):
+            return []
+        try:
+            local_now = self._now()
+            _require_aware_datetime(local_now)
+            config = config or self._storage.load_runtime_config()
+            state = self._storage.get_scheduler_state()
+            today_due = config.today_schedule_enabled and _today_is_due(
+                local_now, config.today_schedule_time, state.last_today_attempt_date
             )
-            runs.append(ScheduledRun("today", result))
-            return runs
+            history_due = _history_is_due(
+                local_now, config.history_poll_minutes, state.last_history_attempt_at
+            )
 
-        if history_due:
-            result = self._runtime.run_history()
-            self._storage.record_scheduler_attempts(history_attempt_at=local_now)
-            runs.append(ScheduledRun("history", result))
-        return runs
+            if today_due:
+                # The Today pipeline begins with History.  Book both slots
+                # before Spotify is contacted, including on a later failure.
+                self._storage.record_scheduler_attempts(
+                    history_attempt_at=local_now,
+                    today_attempt_date=local_now.date().isoformat(),
+                )
+                return [ScheduledRun("today", self._runtime.run_today(write=True, config=config))]
+
+            if history_due:
+                self._storage.record_scheduler_attempts(history_attempt_at=local_now)
+                return [ScheduledRun("history", self._runtime.run_history())]
+            return []
+        finally:
+            self._run_lock.release()
 
 
 def _history_is_due(now: datetime, interval_minutes: int, last_attempt: str | None) -> bool:

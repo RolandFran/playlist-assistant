@@ -47,6 +47,7 @@ class RuntimeOrchestrator:
         self._status_store = status_store
         self._active_jobs: set[str] = set()
         self._active_jobs_lock = Lock()
+        self._pipeline_lock = Lock()
 
     def run_history(self, *, recover_after=None) -> JobResult:
         """Run one history synchronization pass."""
@@ -77,8 +78,9 @@ class RuntimeOrchestrator:
         started_at = self._now()
 
         with self._active_jobs_lock:
-            if job_name in self._active_jobs:
-                error = RuntimeError(f"Job {job_name!r} is already running.")
+            if self._active_jobs:
+                active = next(iter(self._active_jobs))
+                error = RuntimeError(f"Job {active!r} is already running.")
                 return self._complete(self._result(
                     job_name,
                     False,

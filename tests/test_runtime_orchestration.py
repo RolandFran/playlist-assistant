@@ -147,5 +147,27 @@ class RuntimeOrchestrationTests(unittest.TestCase):
         self.assertEqual(rejected.failed_step, "history")
         self.assertIn("already running", str(rejected.error))
 
+    def test_concurrent_different_jobs_are_also_rejected(self):
+        calls = []
+        runner_started = Event()
+        release_runner = Event()
+
+        def blocking_history_runner(**kwargs):
+            calls.append(("history", kwargs))
+            runner_started.set()
+            release_runner.wait(timeout=1)
+
+        runtime = self.make_runtime(calls, history_runner=blocking_history_runner)
+        first = Thread(target=runtime.run_history)
+        first.start()
+        self.assertTrue(runner_started.wait(timeout=1))
+        second = runtime.run_today()
+        release_runner.set()
+        first.join(timeout=1)
+
+        self.assertFalse(second.success)
+        self.assertIn("already running", str(second.error))
+        self.assertEqual(calls, [("history", {"recover_after": None})])
+
     def test_history_cadence_default_is_ninety_minutes(self):
         self.assertEqual(DEFAULT_HISTORY_POLL_MINUTES, 90)

@@ -98,6 +98,24 @@ class SchedulerPolicyTests(unittest.TestCase):
 
         self.assertEqual([name for name, _ in self.runtime.calls], ["history", "history"])
 
+    def test_failed_run_is_booked_before_the_runner_can_return(self):
+        observed_attempts = []
+
+        class InspectingRuntime(FakeRuntime):
+            def run_history(inner):
+                observed_attempts.append(self.storage.get_scheduler_state().last_history_attempt_at)
+                return super().run_history()
+
+        self.runtime = InspectingRuntime(fail_history=True)
+        self.policy = SchedulerPolicy(runtime=self.runtime, storage=self.storage, now=lambda: self.current_time)
+        config = RuntimeConfig(today_schedule_enabled=False, history_poll_minutes=90)
+
+        self.policy.run_due(config)
+        self.policy.run_due(config)
+
+        self.assertEqual(len(self.runtime.calls), 1)
+        self.assertEqual(observed_attempts, [self.current_time.isoformat()])
+
     def test_failed_today_waits_until_next_daily_slot(self):
         self.runtime.fail_today = True
         self.current_time = self.current_time.replace(hour=4)

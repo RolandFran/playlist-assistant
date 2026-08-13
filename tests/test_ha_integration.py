@@ -1,5 +1,6 @@
 """HA-shaped integration tests without requiring a full Core installation."""
 import asyncio
+import importlib
 import sys
 import types
 import unittest
@@ -52,7 +53,7 @@ def _install_ha_stubs():
     aiohttp = types.ModuleType("homeassistant.helpers.aiohttp_client"); aiohttp.async_get_clientsession = lambda hass: object()
     event = types.ModuleType("homeassistant.helpers.event")
     def interval(hass, callback, value): hass.tracks.append(("interval", value, callback)); return lambda: hass.tracks.remove(("interval", value, callback))
-    def daily(hass, callback, hour, minute): hass.tracks.append(("daily", hour, minute, callback)); return lambda: hass.tracks.remove(("daily", hour, minute, callback))
+    def daily(hass, callback, hour, minute, second=None): hass.tracks.append(("daily", hour, minute, second, callback)); return lambda: hass.tracks.remove(("daily", hour, minute, second, callback))
     event.async_track_time_interval, event.async_track_time_change = interval, daily
     update = types.ModuleType("homeassistant.helpers.update_coordinator"); update.DataUpdateCoordinator = _Coordinator
     oauth2 = types.ModuleType("homeassistant.helpers.config_entry_oauth2_flow")
@@ -69,7 +70,10 @@ class IntegrationTests(unittest.IsolatedAsyncioTestCase):
         _install_ha_stubs()
         import custom_components.playlist_assistant.bridge as bridge
         bridge.AddonBridge = _Bridge
+        import custom_components.playlist_assistant.coordinator as coordinator
+        importlib.reload(coordinator)
         import custom_components.playlist_assistant as integration
+        importlib.reload(integration)
         cls.integration = integration
 
     async def asyncSetUp(self):
@@ -98,9 +102,13 @@ class IntegrationTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_native_callbacks_route_through_bridge_and_refresh_coordinator(self):
         interval_callback = next(track[2] for track in self.hass.tracks if track[0] == "interval")
-        daily_callback = next(track[3] for track in self.hass.tracks if track[0] == "daily")
+        daily_callback = next(track[4] for track in self.hass.tracks if track[0] == "daily")
         await interval_callback()
         await daily_callback()
         self.assertEqual(self.data["bridge"].calls, ["sync", "run"])
         self.assertEqual(self.data["coordinator"].data["preview"]["state"], "state-2")
         self.assertGreaterEqual(self.data["coordinator"].listeners, 2)
+
+    async def test_daily_callback_is_registered_only_at_second_zero(self):
+        daily = next(track for track in self.hass.tracks if track[0] == "daily")
+        self.assertEqual(daily[3], 0)

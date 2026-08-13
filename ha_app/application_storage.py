@@ -175,6 +175,26 @@ class ApplicationStorage:
                 values,
             )
 
+    def get_spotify_retry_after_until(self) -> Optional[str]:
+        """Return the shared Spotify cooldown deadline, if one is active."""
+        with self._connection() as conn:
+            self._ensure_schema(conn)
+            row = conn.execute(
+                "SELECT state_value FROM application_scheduler_state WHERE state_name = ?",
+                ("spotify_retry_after_until",),
+            ).fetchone()
+        return row[0] if row else None
+
+    def set_spotify_retry_after_until(self, value: datetime) -> None:
+        """Persist a 429 deadline for every automatic pipeline caller."""
+        with self._connection() as conn:
+            self._ensure_schema(conn)
+            conn.execute(
+                "INSERT INTO application_scheduler_state (state_name, state_value) VALUES (?, ?) "
+                "ON CONFLICT(state_name) DO UPDATE SET state_value = excluded.state_value",
+                ("spotify_retry_after_until", _serialize_datetime(value)),
+            )
+
     def record_job_result(self, result) -> JobStatus:
         """Persist a completed runtime result without retaining its exception object."""
         error = result.error

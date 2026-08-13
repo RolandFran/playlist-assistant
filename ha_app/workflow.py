@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import hashlib
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from threading import Lock
 
 from application_storage import ApplicationStorage
 from db_state import get_current_input_fingerprint
 from run import run_history, run_publish, run_score, run_sources
+from client import SpotifyRateLimited
 
 
 class PreviewRequiredError(RuntimeError):
@@ -94,4 +95,23 @@ class PlaylistWorkflow:
         # Blocking is intentional: every caller shares this one lock, so a
         # manual action cannot race a scheduled Spotify operation.
         with self._lock:
-            return work()
+            deadline = self.storage.get_spotify_retry_after_until()
+            if deadline:
+                retry_at = datetime.fromisoformat(deadline)
+                if self.now() < retry_at:
+                    raise RuntimeError(
+                        "Spotify ist wegen eines Rate Limits bis "
+                        f"{retry_at.astimezone().strftime('%H:%M:%S')} gesperrt."
+                    )
+            try:
+                return work()
+            except SpotifyRateLimited as error:
+                if error.retry_after is not None:
+                    retry_at = self.now() + timedelta(seconds=error.retry_after)
+                    self.storage.set_spotify_retry_after_until(retry_at)
+                    raise RuntimeError(
+                        "Spotify Rate Limit erreicht"
+                        + (" (QUOTA_EXCEEDED)" if error.reason == "QUOTA_EXCEEDED" else "")
+                        + f". Erneut möglich ab {retry_at.astimezone().strftime('%H:%M:%S')}."
+                    ) from error
+                raise

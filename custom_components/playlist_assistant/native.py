@@ -9,13 +9,24 @@ class NativeSchedule:
         self._register_interval, self._register_daily = register_interval, register_daily
         self._run_sync, self._run_daily = run_sync, run_daily
         self._unsubscribers = []
+        self._running = False
+
+    async def _run_once(self, callback):
+        """Drop overlapping HA callbacks instead of queuing another pipeline."""
+        if self._running:
+            return
+        self._running = True
+        try:
+            return await callback()
+        finally:
+            self._running = False
 
     def configure(self, interval_minutes, daily_enabled, daily_time):
         self.stop()
-        self._unsubscribers.append(self._register_interval(timedelta(minutes=interval_minutes), self._run_sync))
+        self._unsubscribers.append(self._register_interval(timedelta(minutes=interval_minutes), lambda *_: self._run_once(self._run_sync)))
         if daily_enabled:
             hour, minute = map(int, daily_time.split(":"))
-            self._unsubscribers.append(self._register_daily(hour, minute, self._run_daily))
+            self._unsubscribers.append(self._register_daily(hour, minute, lambda *_: self._run_once(self._run_daily)))
 
     def stop(self):
         for unsubscribe in self._unsubscribers:

@@ -26,7 +26,11 @@ class SpotifyProxyView(HomeAssistantView):
             api = SpotifyApi(config_entry_oauth2_flow.OAuth2Session(self.hass, entry, implementation))
             return self.json(await api.async_request(method, template.format(**body.get("path", {})), params=body.get("params"), json=body.get("json")))
         except SpotifyRequestError as error:
-            return self.json({"error": error.detail}, status_code=error.status)
+            headers = {"Retry-After": error.retry_after} if error.retry_after else None
+            payload = {"error": error.detail}
+            if error.reason:
+                payload["reason"] = error.reason
+            return self.json(payload, status_code=error.status, headers=headers)
         except (KeyError, StopIteration, SpotifyAuthError, SpotifyConnectionError):
             return self.json({"error": "Spotify connection is unavailable."}, status_code=400)
 

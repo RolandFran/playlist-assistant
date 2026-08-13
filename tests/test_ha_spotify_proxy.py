@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.error import HTTPError
 from unittest.mock import patch
 
-from ha_app.client import SpotifyApiError, SpotifyClient
+from ha_app.client import SpotifyApiError, SpotifyClient, SpotifyRateLimited
 
 
 class _Response:
@@ -143,3 +143,16 @@ class ProxyClientTests(unittest.TestCase):
         self.assertEqual(caught.exception.http_status, 403)
         self.assertIn("operation=playlist_items status=403 detail=Insufficient client scope", logs.output[0])
         self.assertNotIn(self.env["SUPERVISOR_TOKEN"], "\n".join(logs.output))
+
+    def test_proxy_429_preserves_retry_after_and_quota_reason(self):
+        error = HTTPError(
+            self.env["PLAYLIST_ASSISTANT_SPOTIFY_PROXY"], 429, "Too Many Requests",
+            {"Retry-After": "120"}, BytesIO(b'{"error":"quota exhausted","reason":"QUOTA_EXCEEDED"}'),
+        )
+        with patch.dict(os.environ, self.env, clear=True), patch("ha_app.client.urllib.request.urlopen", side_effect=error):
+            with self.assertRaises(SpotifyRateLimited) as caught:
+                SpotifyClient().get_all_user_playlists()
+
+        self.assertEqual(caught.exception.retry_after, 120)
+        self.assertEqual(caught.exception.reason, "QUOTA_EXCEEDED")
+        self.assertEqual(caught.exception.operation, "current_user_playlists")

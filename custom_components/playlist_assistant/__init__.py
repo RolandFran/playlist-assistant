@@ -41,7 +41,8 @@ async def async_setup_entry(hass, entry):
     async def sync(_now=None): return await execute("sync")
     async def run(_now=None): return await execute("run")
     schedule = NativeSchedule(lambda interval, callback: async_track_time_interval(hass, callback, interval),
-        lambda hour, minute, callback: async_track_time_change(hass, callback, hour=hour, minute=minute), sync, run)
+        # Without second=0 HA matches every second of the configured minute.
+        lambda hour, minute, callback: async_track_time_change(hass, callback, hour=hour, minute=minute, second=0), sync, run)
     async def configure(values=None):
         if values is None:
             await coordinator.async_request_refresh()

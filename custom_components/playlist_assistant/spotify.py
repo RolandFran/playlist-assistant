@@ -21,9 +21,11 @@ class SpotifyConnectionError(Exception):
 class SpotifyRequestError(Exception):
     """A safe Spotify API failure suitable for the internal add-on proxy."""
 
-    def __init__(self, status: int, detail: str) -> None:
+    def __init__(self, status: int, detail: str, *, retry_after: str | None = None, reason: str | None = None) -> None:
         self.status = status
         self.detail = detail
+        self.retry_after = retry_after
+        self.reason = reason
 
 
 async def _safe_error_detail(response) -> str:
@@ -80,9 +82,12 @@ class SpotifyApi:
                 if response.status == 401:
                     raise SpotifyAuthError
                 if response.status >= 400:
+                    detail = await _safe_error_detail(response)
                     raise SpotifyRequestError(
                         response.status,
-                        await _safe_error_detail(response),
+                        detail,
+                        retry_after=getattr(response, "headers", {}).get("Retry-After"),
+                        reason="QUOTA_EXCEEDED" if "QUOTA_EXCEEDED" in detail else None,
                     )
                 response.raise_for_status()
                 # Spotify's playlist-write endpoints may reply with an empty
