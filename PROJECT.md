@@ -341,7 +341,7 @@ Use instead:
 - Planning, architecture, and review happen primarily in the normal ChatGPT chat.
 - Codex/Work is used selectively for clearly scoped repository and implementation work.
 - Git is the authoritative technical reference between chat and Work.
-- Larger changes should be made on a dedicated branch and reviewed through a pull request.
+- The mandatory development and release workflow is documented in `docs/development.md`.
 - Hermes is not currently a necessary intermediate step for this project and should not consume additional Work/Codex capacity without a concrete benefit.
 
 ## Repository language convention

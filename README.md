@@ -174,7 +174,10 @@ If an older ADR conflicts with `PROJECT.md`, the current state documented in `PR
 
 ## Development workflow
 
-`main` is the stable, approved state. Changes are made in separate branches and reviewed through pull requests before merging into `main`.
+`main` is the stable, approved state. Product-code changes are made on worker
+or feature branches and reviewed through pull requests before merging into
+`main`. The binding development, release, language, and worker handoff rules
+are in [`docs/development.md`](docs/development.md).
 
 After an approved merge, update the local checkout with:
 
