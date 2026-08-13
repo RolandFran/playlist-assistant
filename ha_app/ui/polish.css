@@ -1,0 +1,18 @@
+/* Desktop table space allocation and responsive polish. */
+main { max-width: 1680px; }
+.dashboard-grid { grid-template-columns: minmax(0, 1.85fr) minmax(19rem, 1fr); }
+.playlist-preview { overflow-x: hidden; }
+.playlist-toolbar { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
+.playlist-toolbar input { flex: 1; min-width: 0; }
+.playlist-toolbar button, td:nth-child(3), td:nth-child(4), td:nth-child(5) { white-space: nowrap; }
+table { table-layout: fixed; }
+td, th { overflow: hidden; text-overflow: ellipsis; }
+th:nth-child(1) { width: 31%; }
+th:nth-child(2) { width: 29%; }
+th:nth-child(3) { width: 10%; }
+th:nth-child(4) { width: 11%; }
+th:nth-child(5) { width: 19%; }
+@media (max-width: 900px) {
+  .playlist-toolbar { align-items: stretch; flex-direction: column; }
+  .playlist-toolbar input, .playlist-toolbar button { width: 100%; margin: .25rem 0; }
+}

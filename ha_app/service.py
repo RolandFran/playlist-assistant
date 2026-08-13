@@ -118,16 +118,21 @@ class ServiceHost:
         token = os.getenv("SUPERVISOR_TOKEN")
         if not token:
             LOGGER.warning("schedule_change_not_sent supervisor token unavailable")
-            return
+            raise RuntimeError("Home Assistant could not activate the new schedule.")
         data = json.dumps({"history_interval_minutes": config.history_poll_minutes,
                            "daily_enabled": config.today_schedule_enabled,
                            "daily_time": config.today_schedule_time}).encode()
         request = urllib.request.Request("http://supervisor/core/api/events/playlist_assistant_schedule_changed", data=data,
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"}, method="POST")
         try:
-            urllib.request.urlopen(request, timeout=5).close()
+            with urllib.request.urlopen(request, timeout=5) as response:
+                if response.status < 200 or response.status >= 300:
+                    raise OSError(f"Home Assistant event response was {response.status}")
+            active_daily = config.today_schedule_time if config.today_schedule_enabled else "disabled"
+            LOGGER.info("schedule_change_sent active_daily_schedule=%s", active_daily)
         except OSError:
             LOGGER.exception("schedule_change_notification_failed")
+            raise RuntimeError("Home Assistant could not activate the new schedule.") from None
 
 
 def _start_health_server(connected: Callable[[], bool]) -> ThreadingHTTPServer:

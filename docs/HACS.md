@@ -11,17 +11,20 @@ Playlist Assistant uses the standard HACS integration layout:
 
 No `content_in_root`, `zip_release`, or custom release artifact is needed.
 
-## Brand asset still required
+## Brand assets
 
-No suitable Playlist Assistant project logo exists in the repository yet. Do
-not substitute a generic placeholder. Before publishing the first integration
-release, add an approved square PNG icon as:
+HACS reads the repository-root `brand/icon.png`; it is included and uses the
+Playlist Assistant logo. Home Assistant 2026.3 and newer can also use the
+matching integration-local asset at
+`custom_components/playlist_assistant/brand/icon.png`.
 
-`brand/icon.png`
+HACS and browser views may cache brand imagery. After an update, refresh the
+HACS page with a hard reload; a running Home Assistant instance can require a
+restart or cache expiry before replacing an already cached card image.
 
-This is the `brand` directory inside the custom integration, where HACS looks
-for local custom-integration brand assets. The icon should follow the current
-Home Assistant brand-image requirements.
+`home-assistant/brands` is not required for HACS custom repositories. It is
+only needed if this repository is later submitted for inclusion in HACS's
+default repository list or if older Home Assistant branding support is wanted.
 
 ## GitHub repository settings
 

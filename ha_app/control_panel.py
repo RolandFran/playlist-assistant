@@ -73,7 +73,8 @@ class ControlPanel:
         except Exception as error:
             LOGGER.warning("settings_save_failed error_type=%s", type(error).__name__)
             raise
-        LOGGER.info("settings_saved")
+        active_daily = config.today_schedule_time if config.today_schedule_enabled else "disabled"
+        LOGGER.info("settings_saved active_daily_schedule=%s", active_daily)
         return self.state()
 
     def run_action(self, action: str) -> dict:
@@ -149,6 +150,7 @@ def start_ingress(panel: ControlPanel, *, bridge_token: str, port: int = INGRESS
                 return self._file("index.html", "text/html; charset=utf-8", ingress_base_path=self._ingress_base_path())
             if path == "/app.js": return self._file("app.js", "application/javascript; charset=utf-8")
             if path == "/app.css": return self._file("app.css", "text/css; charset=utf-8")
+            if path == "/polish.css": return self._file("polish.css", "text/css; charset=utf-8")
             self.send_error(404)
         def do_POST(self):  # noqa: N802
             path = urlsplit(self.path).path

@@ -130,7 +130,7 @@ class ControlPanelTests(unittest.TestCase):
             "today_schedule_time": "07:30", "long_weight": 40,
             "target_playlist_name": "Morning",
         })
-        self.assertIn("settings_saved", logs.output[0])
+        self.assertIn("settings_saved active_daily_schedule=07:30", logs.output[0])
 
     def test_ingress_action_accepts_empty_post_body_as_a_server_side_trigger(self):
         workflow = _Workflow()

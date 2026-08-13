@@ -1,6 +1,10 @@
 """HA-independent native scheduling and state rules, kept easy to test."""
 from __future__ import annotations
 from datetime import timedelta
+import logging
+
+
+LOGGER = logging.getLogger(__name__)
 
 from .const import HISTORY_GRACE_MINUTES
 
@@ -9,6 +13,7 @@ class NativeSchedule:
         self._register_interval, self._register_daily = register_interval, register_daily
         self._run_sync, self._run_daily = run_sync, run_daily
         self._unsubscribers = []
+        self._daily_unsubscriber = None
         self._running = False
 
     async def _run_once(self, callback):
@@ -22,16 +27,23 @@ class NativeSchedule:
             self._running = False
 
     def configure(self, interval_minutes, daily_enabled, daily_time):
+        """Replace callbacks immediately when persisted cadence changes."""
         self.stop()
         self._unsubscribers.append(self._register_interval(timedelta(minutes=interval_minutes), lambda *_: self._run_once(self._run_sync)))
         if daily_enabled:
             hour, minute = map(int, daily_time.split(":"))
-            self._unsubscribers.append(self._register_daily(hour, minute, lambda *_: self._run_once(self._run_daily)))
+            self._daily_unsubscriber = self._register_daily(hour, minute, lambda *_: self._run_once(self._run_daily))
+            LOGGER.info("daily_schedule_registered time=%s second=0", daily_time)
+        else:
+            LOGGER.info("daily_schedule_disabled")
 
     def stop(self):
         for unsubscribe in self._unsubscribers:
             unsubscribe()
         self._unsubscribers = []
+        if self._daily_unsubscriber is not None:
+            self._daily_unsubscriber()
+        self._daily_unsubscriber = None
 
 def history_gap(last_success, interval_minutes, now):
     """None is HA unknown; a first run must not look like a fault."""

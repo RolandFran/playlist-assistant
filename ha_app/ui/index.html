@@ -5,6 +5,7 @@
   <base href="{{INGRESS_BASE_PATH}}">
   <title>Playlist Assistant</title>
   <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="polish.css">
 </head>
 <body>
   <main>
@@ -14,7 +15,10 @@
     <div class="dashboard-grid">
       <section class="playlist-preview">
         <h2 data-i18n="playlist_preview"></h2>
-        <input id="filter">
+        <div class="playlist-toolbar">
+          <input id="filter">
+          <button id="reset-sorting" type="button" data-i18n="reset_sorting"></button>
+        </div>
         <table>
           <thead>
             <tr>

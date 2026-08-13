@@ -17,7 +17,7 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
         config = (ADDON / "config.yaml").read_text(encoding="utf-8")
         self.assertIn("ingress: true", config)
         self.assertIn("ingress_port: 8098", config)
-        self.assertIn('version: "0.1.18"', config)
+        self.assertIn('version: "0.1.20"', config)
         for legacy_option in ("spotify_client_id", "spotify_client_secret", "bridge_token"):
             self.assertIn(legacy_option, config)
         service = (ADDON / "service.py").read_text(encoding="utf-8")
@@ -31,12 +31,15 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
         self.assertIn("target_playlist_name", frontend)
         self.assertIn("today_schedule_enabled", frontend)
         self.assertIn("aria-readonly", frontend)
+        self.assertIn("relativeDate", frontend)
+        self.assertIn("reset-sorting", frontend)
         self.assertNotIn("pairing-file", frontend)
         self.assertNotIn("spotify/import", frontend)
         panel = (ADDON / "ui" / "index.html").read_text(encoding="utf-8")
         self.assertIn('data-i18n="playlist_preview"', panel)
         self.assertIn('class="dashboard-grid"', panel)
         self.assertIn('class="playlist-preview"', panel)
+        self.assertIn('id="reset-sorting"', panel)
         self.assertIn('class="dashboard-sidebar"', panel)
         self.assertLess(panel.index('class="playlist-preview"'), panel.index('class="dashboard-sidebar"'))
         self.assertNotIn('data-i18n="today"', panel)
@@ -46,6 +49,9 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
         self.assertIn('.dashboard-sidebar{position:sticky', stylesheet)
         self.assertIn('@media (max-width:900px){', stylesheet)
         self.assertIn('.dashboard-grid{grid-template-columns:1fr}', stylesheet)
+        polish = (ADDON / "ui" / "polish.css").read_text(encoding="utf-8")
+        self.assertIn("table-layout: fixed", polish)
+        self.assertIn("white-space: nowrap", polish)
         for name in (
             "requirements.txt", "service.py", "control_panel.py", "workflow.py",
             "run.py", "application_paths.py", "application_storage.py",
