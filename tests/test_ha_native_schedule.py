@@ -79,6 +79,26 @@ class NativeScheduleTests(unittest.TestCase):
         asyncio.run(exercise())
         self.assertEqual(runs, ["daily"])
 
+    def test_daily_callback_waits_for_an_overlapping_history_run(self):
+        callbacks, started, release, runs = {}, asyncio.Event(), asyncio.Event(), []
+        def interval(value, callback): callbacks["history"] = callback; return lambda: None
+        def daily(hour, minute, callback): callbacks["daily"] = callback; return lambda: None
+        async def history(): started.set(); await release.wait(); runs.append("history")
+        async def daily_run(): runs.append("daily")
+        schedule = NativeSchedule(interval, daily, history, daily_run)
+        schedule.configure(90, True, "16:45")
+        async def exercise():
+            first = asyncio.create_task(callbacks["history"]())
+            await started.wait()
+            queued = asyncio.create_task(callbacks["daily"]())
+            await asyncio.sleep(0)
+            self.assertFalse(queued.done())
+            release.set()
+            await first
+            await queued
+        asyncio.run(exercise())
+        self.assertEqual(runs, ["history", "daily"])
+
     def test_history_gap_is_unknown_before_first_success_and_uses_grace_period(self):
         now = datetime(2026, 8, 10, tzinfo=timezone.utc)
         self.assertIsNone(history_gap(None, 90, now))

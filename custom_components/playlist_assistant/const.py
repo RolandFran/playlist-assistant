@@ -1,6 +1,7 @@
 """Constants for the Playlist Assistant integration."""
 
 DOMAIN = "playlist_assistant"
+PANEL_ICON = "mdi:play"
 PLATFORMS = ["sensor", "binary_sensor"]
 HISTORY_GRACE_MINUTES = 15
 

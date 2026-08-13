@@ -1,6 +1,6 @@
 # Playlist Assistant
 
-Playlist Assistant creates a private Spotify `Today` playlist from the playlists you choose. Add `#today-source` to a Spotify playlist description to include it as a source. Playlist Assistant scores those tracks by how rarely and how long ago they were played, then uses artist spacing to make the resulting Today playlist feel varied.
+Playlist Assistant brings music you already like back into rotation by building private Spotify playlists from your selected sources and listening history. Add `#today-source` to a Spotify playlist description to include it as a source.
 
 The private `Today` playlist stays up to date without changing the source playlists.
 

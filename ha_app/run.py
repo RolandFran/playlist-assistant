@@ -1,6 +1,7 @@
 import argparse
 import subprocess
 import sys
+import re
 from pathlib import Path
 
 from application_storage import ApplicationStorage
@@ -11,6 +12,7 @@ from application_paths import (
 )
 from runtime_config import add_runtime_config_arguments, runtime_config_from_args
 from runtime import RuntimeOrchestrator
+from client import SpotifyRateLimited
 
 
 PROJECT_DIR = Path(__file__).resolve().parent
@@ -21,6 +23,31 @@ SCRIPTS = {
     "score": "scoring.py",
     "publish": "publish.py",
 }
+
+
+class ScriptFailure(RuntimeError):
+    """A safe, actionable failure returned by one of the finite pipeline jobs."""
+
+    def __init__(self, script_name: str, returncode: int, detail: str):
+        self.script_name = script_name
+        self.returncode = returncode
+        self.detail = detail
+        super().__init__(f"{script_name} failed (exit code {returncode}): {detail}")
+
+
+def _retry_after(output: str) -> int | None:
+    match = re.search(r"Retry will occur after:\s*(\d+)\s*s", output, re.I)
+    return int(match.group(1)) if match else None
+
+
+def _failure_detail(output: str) -> str:
+    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    for line in reversed(lines):
+        if line.startswith("FEHLER:"):
+            return line.removeprefix("FEHLER:").strip()
+        if "error=" in line.lower() or "failed" in line.lower():
+            return line[-500:]
+    return lines[-1][-500:] if lines else "No safe error detail was produced."
 
 
 def run_script(script_name, *args, paths: ApplicationPaths | None = None):
@@ -42,16 +69,19 @@ def run_script(script_name, *args, paths: ApplicationPaths | None = None):
     print(f"START: {script_name}")
     print("=" * 70)
 
-    result = subprocess.run(
-        command,
-        cwd=PROJECT_DIR,
-    )
+    result = subprocess.run(command, cwd=PROJECT_DIR, text=True,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.stdout:
+        print(result.stdout, end="")
+    if result.stderr:
+        print(result.stderr, end="", file=sys.stderr)
 
     if result.returncode != 0:
-        raise RuntimeError(
-            f"{script_name} ist mit Exit-Code "
-            f"{result.returncode} fehlgeschlagen."
-        )
+        output = (result.stderr or "") + "\n" + (result.stdout or "")
+        detail = _failure_detail(output)
+        if "rate limit" in detail.lower():
+            raise SpotifyRateLimited(detail, retry_after=_retry_after(output))
+        raise ScriptFailure(script_name, result.returncode, detail)
 
     print()
     print(f"OK: {script_name}")

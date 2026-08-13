@@ -17,7 +17,8 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
         config = (ADDON / "config.yaml").read_text(encoding="utf-8")
         self.assertIn("ingress: true", config)
         self.assertIn("ingress_port: 8098", config)
-        self.assertIn('version: "0.1.23"', config)
+        self.assertIn('version: "0.1.24"', config)
+        self.assertIn('panel_icon: mdi:play', config)
         for legacy_option in ("spotify_client_id", "spotify_client_secret", "bridge_token"):
             self.assertIn(legacy_option, config)
         service = (ADDON / "service.py").read_text(encoding="utf-8")
@@ -30,7 +31,7 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
         self.assertIn("if(!response.ok)", frontend)
         self.assertIn("target_playlist_name", frontend)
         self.assertIn("today_schedule_enabled", frontend)
-        self.assertIn("aria-readonly", frontend)
+        self.assertIn('type=\'range\'', frontend)
         self.assertIn("relativeDate", frontend)
         self.assertIn("reset-sorting", frontend)
         self.assertNotIn("pairing-file", frontend)

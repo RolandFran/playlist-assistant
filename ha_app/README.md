@@ -1,9 +1,7 @@
-# Home Assistant app package
-
-![Playlist Assistant](logo.png)
-
 Playlist Assistant brings music you already like back into rotation by building
 private Spotify playlists from your selected sources and listening history.
+
+## About
 
 This directory is the Home Assistant app package.
 It starts one small supervised Python service after Home Assistant has started

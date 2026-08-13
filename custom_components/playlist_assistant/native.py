@@ -1,6 +1,7 @@
 """HA-independent native scheduling and state rules, kept easy to test."""
 from __future__ import annotations
 from datetime import timedelta
+import asyncio
 import logging
 
 
@@ -15,16 +16,27 @@ class NativeSchedule:
         self._unsubscribers = []
         self._daily_unsubscriber = None
         self._running = False
+        self._active_callback = None
 
     async def _run_once(self, callback):
         """Drop overlapping HA callbacks instead of queuing another pipeline."""
         if self._running:
             return
         self._running = True
+        self._active_callback = callback
         try:
             return await callback()
         finally:
             self._running = False
+            self._active_callback = None
+
+    async def _run_daily_once(self, callback):
+        """Do not lose the one daily run when a history callback overlaps it."""
+        if self._running and self._active_callback == callback:
+            return
+        while self._running:
+            await asyncio.sleep(0.1)
+        return await self._run_once(callback)
 
     def configure(self, interval_minutes, daily_enabled, daily_time):
         """Replace callbacks immediately when persisted cadence changes."""
@@ -39,7 +51,7 @@ class NativeSchedule:
         self.stop()
         self._unsubscribers.append(self._register_interval(timedelta(minutes=interval_minutes), lambda *_: self._run_once(self._run_sync)))
         if daily_enabled:
-            self._daily_unsubscriber = self._register_daily(hour, minute, lambda *_: self._run_once(self._run_daily))
+            self._daily_unsubscriber = self._register_daily(hour, minute, lambda *_: self._run_daily_once(self._run_daily))
             LOGGER.info("daily_schedule_registered time=%s second=0", daily_time)
         else:
             LOGGER.info("daily_schedule_disabled")

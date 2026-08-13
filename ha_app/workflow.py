@@ -52,8 +52,18 @@ class PlaylistWorkflow:
 
     def sync(self):
         def work():
-            self.runners["history"]()
-            self.runners["sources"]()
+            try:
+                self.runners["history"]()
+            except SpotifyRateLimited:
+                raise
+            except Exception as error:
+                raise RuntimeError(f"History sync failed: {error}") from error
+            try:
+                self.runners["sources"]()
+            except SpotifyRateLimited:
+                raise
+            except Exception as error:
+                raise RuntimeError(f"Source sync failed: {error}") from error
         return self._execute("syncing", work)
 
     def preview(self):
