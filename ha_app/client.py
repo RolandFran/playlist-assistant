@@ -520,21 +520,18 @@ class SpotifyClient:
             description=description,
         )
 
-    def set_playlist_private(self, playlist_id: str) -> None:
-        self._call(
-            "playlist_change_details",
-            self._sp.playlist_change_details,
-            playlist_id,
-            public=False,
-        )
+    def prepare_private_playlist(self, playlist_id: str, name: str) -> None:
+        """Set the only required details for an existing publish target.
 
-    def rename_playlist(self, playlist_id: str, name: str) -> None:
-        """Rename the persisted target playlist without creating a new one."""
+        ``collaborative`` is intentionally omitted: it is a creation setting
+        and is not needed to make an existing playlist private.
+        """
         self._call(
             "playlist_change_details",
             self._sp.playlist_change_details,
             playlist_id,
             name=name,
+            public=False,
         )
 
     def replace_playlist_items(

@@ -154,6 +154,30 @@ class SpotifyConnectionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(caught.exception.status, 403)
         self.assertEqual(caught.exception.detail, "Insufficient client scope")
 
+    async def test_playlist_write_accepts_an_empty_success_response(self):
+        class _EmptyResponse(_Response):
+            async def json(self):
+                raise ValueError("empty response body")
+
+        api = self.spotify.SpotifyApi(_OAuthSession(_EmptyResponse(200, None)))
+
+        result = await api.async_request(
+            "PUT", "/playlists/playlist", json={"name": "Today", "public": False}
+        )
+
+        self.assertEqual(result, {})
+
+    async def test_proxy_request_keeps_400_spotify_detail(self):
+        api = self.spotify.SpotifyApi(
+            _OAuthSession(_Response(400, {"error": {"message": "Invalid playlist details"}}))
+        )
+
+        with self.assertRaises(self.spotify.SpotifyRequestError) as caught:
+            await api.async_request("PUT", "/playlists/playlist", json={"public": False})
+
+        self.assertEqual(caught.exception.status, 400)
+        self.assertEqual(caught.exception.detail, "Invalid playlist details")
+
     def test_config_flow_requests_only_profile_scope_and_exact_redirect(self):
         application_credentials = importlib.import_module("custom_components.playlist_assistant.application_credentials")
         credential = types.SimpleNamespace(client_id="client", client_secret="secret")

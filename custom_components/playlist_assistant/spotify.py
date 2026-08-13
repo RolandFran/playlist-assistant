@@ -85,9 +85,16 @@ class SpotifyApi:
                         await _safe_error_detail(response),
                     )
                 response.raise_for_status()
+                # Spotify's playlist-write endpoints may reply with an empty
+                # 200 body (as well as 204). A successful write must not be
+                # misreported as a connection error just because there is no
+                # JSON document to decode.
                 if response.status == 204:
                     return {}
-                payload = await response.json()
+                try:
+                    payload = await response.json()
+                except (ClientError, ValueError):
+                    return {}
         except (SpotifyAuthError, SpotifyRequestError, OAuth2TokenRequestReauthError):
             raise
         except (ClientError, TimeoutError, ValueError) as err:

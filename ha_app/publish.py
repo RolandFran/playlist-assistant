@@ -182,8 +182,7 @@ def main():
 
     playlist_id = target_playlist["id"]
 
-    client.rename_playlist(playlist_id, target_name)
-    client.set_playlist_private(playlist_id)
+    client.prepare_private_playlist(playlist_id, target_name)
     print("Playlist-Sichtbarkeit auf privat gesetzt.")
 
     client.replace_playlist_items(
