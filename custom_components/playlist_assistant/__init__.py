@@ -1,7 +1,11 @@
 """Playlist Assistant setup, including the HA-owned Spotify connection proof."""
 from __future__ import annotations
+import logging
 from .const import DOMAIN, PLATFORMS
 from .native import NativeSchedule
+
+
+LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry):
     from .spotify import SpotifyApi
@@ -51,19 +55,22 @@ async def async_setup_entry(hass, entry):
     await coordinator.async_config_entry_first_refresh()
     if bridge:
         await configure(coordinator.data["schedule"])
-    async def schedule_changed(event):
-        await configure(event.data)
+    async def reconfigure_schedule(call):
+        values = call.data
+        LOGGER.info("daily_schedule_change_received time=%s enabled=%s", values.get("daily_time"), values.get("daily_enabled"))
+        await configure(values)
         await coordinator.async_schedule_changed()
-    unsubscribe_event = hass.bus.async_listen("playlist_assistant_schedule_changed", schedule_changed) if bridge else lambda: None
     async def handler(call): await execute(call.service)
+    if bridge:
+        hass.services.async_register(DOMAIN, "reconfigure_schedule", reconfigure_schedule)
     for action in ("sync", "preview", "publish", "run"):
         hass.services.async_register(DOMAIN, action, handler)
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {"entry": entry, "bridge": bridge, "spotify": spotify, "coordinator": coordinator, "schedule": schedule, "event": unsubscribe_event}
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {"entry": entry, "bridge": bridge, "spotify": spotify, "coordinator": coordinator, "schedule": schedule}
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 async def async_unload_entry(hass, entry):
     data = hass.data[DOMAIN].pop(entry.entry_id)
-    data["schedule"].stop(); data["event"]()
-    for action in ("sync", "preview", "publish", "run"): hass.services.async_remove(DOMAIN, action)
+    data["schedule"].stop()
+    for action in ("sync", "preview", "publish", "run", "reconfigure_schedule"): hass.services.async_remove(DOMAIN, action)
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

@@ -89,9 +89,9 @@ class IntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.data["coordinator"].data["preview"]["state"], "state-4")
         self.assertGreaterEqual(self.data["coordinator"].listeners, 4)
 
-    async def test_schedule_event_replaces_callbacks_and_unload_cleans_everything(self):
+    async def test_schedule_service_replaces_callbacks_and_unload_cleans_everything(self):
         old_tracks = list(self.hass.tracks)
-        await self.hass.bus.listeners["playlist_assistant_schedule_changed"](types.SimpleNamespace(data={"history_interval_minutes": 30, "daily_enabled": False, "daily_time": "05:30"}))
+        await self.hass.services.handlers[("playlist_assistant", "reconfigure_schedule")](types.SimpleNamespace(data={"history_interval_minutes": 30, "daily_enabled": False, "daily_time": "05:30"}))
         self.assertNotEqual(self.hass.tracks, old_tracks)
         self.assertEqual(self.hass.tracks[0][1], timedelta(minutes=30))
         self.assertTrue(await self.integration.async_unload_entry(self.hass, self.entry))

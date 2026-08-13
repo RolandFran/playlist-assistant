@@ -13,3 +13,7 @@ publish:
 run:
   name: Run
   description: Run the complete scheduled Playlist Assistant workflow.
+
+reconfigure_schedule:
+  name: Reconfigure schedule
+  description: Internal service used by the Playlist Assistant add-on to apply saved scheduling changes.

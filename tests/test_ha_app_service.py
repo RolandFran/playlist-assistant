@@ -1,10 +1,12 @@
 import json
+import os
 import tempfile
 import unittest
 from unittest.mock import patch
 
 from application_paths import ApplicationPaths
 from ha_app.service import AUTHORIZATION_STATUS_NAME, AppOptions, ServiceHost, spotify_environment
+from runtime_config import RuntimeConfig
 
 
 class HomeAssistantServiceTests(unittest.TestCase):
@@ -28,3 +30,21 @@ class HomeAssistantServiceTests(unittest.TestCase):
 
     def test_host_has_no_scheduler_policy(self):
         self.assertFalse(hasattr(self.service, "_policy"))
+
+    def test_schedule_change_uses_blocking_integration_service_and_requires_json_list_response(self):
+        requests = []
+        class Response:
+            status = 200
+            def read(self): return b"[]"
+            def __enter__(self): return self
+            def __exit__(self, *_): return False
+        def urlopen(request, timeout):
+            requests.append((request, timeout)); return Response()
+
+        with patch.dict(os.environ, {"SUPERVISOR_TOKEN": "token"}, clear=True), patch("ha_app.service.urllib.request.urlopen", urlopen):
+            self.service._notify_schedule_changed(RuntimeConfig(today_schedule_time="17:28"))
+
+        request, timeout = requests[0]
+        self.assertEqual(timeout, 5)
+        self.assertEqual(request.full_url, "http://supervisor/core/api/services/playlist_assistant/reconfigure_schedule")
+        self.assertEqual(json.loads(request.data), {"history_interval_minutes": 90, "daily_enabled": True, "daily_time": "17:28"})
