@@ -1,23 +1,29 @@
-# Playlist Assistant Documentation
+# Playlist Assistant – Dokumentation
 
-This directory is the repository-local knowledge base for Playlist Assistant.
+Dieses Verzeichnis ist die repository-interne Wissensbasis für Playlist Assistant.
 
-## Authoritative documents
+## Verbindliche Dokumente
 
-- [`../PROJECT.md`](../PROJECT.md) — current authoritative technical project state.
-- [`docs-design-notes.md`](docs-design-notes.md) — Architecture Decision Log (ADR), including rationale and superseded decisions.
-- [`product/direction.md`](product/direction.md) — long-lived product direction and product boundaries.
-- [`product/design-principles.md`](product/design-principles.md) — durable design and UX principles.
-- [`ideas/README.md`](ideas/README.md) — prioritized future backlog. Everything intentionally deferred beyond the current stable scope belongs here.
+- [`../PROJECT.md`](../PROJECT.md) – aktueller verbindlicher technischer Projektstand; bleibt als technische Projektdokumentation auf Englisch.
+- [`docs-design-notes.md`](docs-design-notes.md) – Architecture Decision Log (ADR) mit Begründungen und überholten Entscheidungen; bleibt auf Englisch.
+- [`product/direction.md`](product/direction.md) – langfristige Produktrichtung und Produktgrenzen.
+- [`product/design-principles.md`](product/design-principles.md) – dauerhafte Produkt-, Daten- und UX-Prinzipien.
+- [`ideas/README.md`](ideas/README.md) – priorisierter Zukunfts-Backlog. Alles, was bewusst erst nach dem stabilen Kern umgesetzt werden soll, gehört hierher.
 
-## Operational documentation
+## Operative Dokumentation
 
-- [`development.md`](development.md) — development and release workflow.
-- [`HACS.md`](HACS.md) — HACS installation and distribution notes.
-- [`user-guide.md`](user-guide.md) — user-facing guidance.
+- [`development.md`](development.md) – Entwicklungs- und Release-Workflow.
+- [`HACS.md`](HACS.md) – HACS-Installation und Distribution.
+- [`user-guide.md`](user-guide.md) – Anwenderdokumentation.
 
-## Documentation rule
+## Sprachregel
 
-Do not create competing architecture or backlog documents elsewhere in the repository. New future ideas should be added to the appropriate file below `docs/ideas/` and indexed in `docs/ideas/README.md`. Durable product principles belong under `docs/product/`. Technical decisions with rationale belong in the ADR.
+Die interne Planungs- und Ideen-Wiki unter `docs/product/` und `docs/ideas/` wird auf Deutsch geführt, damit sie leicht gelesen und gepflegt werden kann.
 
-The current development priority is Beta stabilization. Future ideas are documentation, not authorization to start implementation.
+Öffentliche bzw. technische Repository-Dokumentation wie README, HACS-Dokumentation, Releases, PRs, Issues, `PROJECT.md` und ADRs bleibt auf Englisch.
+
+## Dokumentationsregel
+
+Keine konkurrierenden Architektur- oder Backlog-Dokumente an anderen Stellen des Repositories anlegen. Neue Zukunftsideen werden in der passenden Datei unter `docs/ideas/` gepflegt und in `docs/ideas/README.md` einsortiert. Dauerhafte Produktprinzipien gehören unter `docs/product/`. Technische Entscheidungen mit Begründung gehören in den ADR.
+
+Aktuelle Entwicklungspriorität ist die **Beta-Stabilisierung**. Zukunftsideen sind Dokumentation und Backlog, keine Freigabe zur sofortigen Implementierung.
