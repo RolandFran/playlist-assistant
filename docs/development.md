@@ -20,25 +20,65 @@ When direct target-environment inspection is useful, prefer Home Assistant-side
 tools such as Studio Code Server or Advanced SSH & Web Terminal rather than
 adding an unnecessary Windows handoff.
 
+## Orchestrator and worker approval boundary
+
+Planning and approval happen before repository implementation starts.
+
+The normal ChatGPT chat acts as the orchestrator: it prepares a concise worker
+plan and assignment, then waits for explicit user approval before starting
+repository implementation.
+
+Once the worker is started, it executes the approved assignment directly. It
+does not create another worker plan or wait for another approval unless it
+encounters a new blocker, destructive action, missing capability, or a risk
+that would materially change the approved scope.
+
 ## Branch and pull request workflow
 
-Do not make product-code changes directly on `main`. Use this standard flow:
+Direct content changes on `main` are prohibited. Use this standard flow:
 
-1. Create a worker or feature branch.
-2. Implement the scoped change and commit it on that branch.
-3. Push the branch and open a pull request targeting `main`.
-4. Run tests and CI, complete review, and address findings.
-5. Merge the approved pull request.
-6. Update/deploy only the affected component to the Home Assistant target.
-7. Use the least disruptive reload/restart that is technically sufficient.
-8. Perform the defined real-world test.
+1. Read-only verify the current `main` HEAD and record the intended base commit.
+2. Create a dedicated worker or feature branch from that exact base.
+3. Read-only verify that the new branch points to the intended base commit.
+4. Implement the scoped change on that branch only.
+5. For every create, update, or delete operation, explicitly provide the
+   non-`main` branch. Never rely on a tool default for the target branch.
+6. Commit and push the branch and open a pull request targeting `main`.
+7. Run tests and CI, complete review, and address findings.
+8. Merge only after explicit user approval.
+9. Update/deploy only the affected component to the Home Assistant target.
+10. Use the least disruptive reload/restart that is technically sufficient.
+11. Perform the defined real-world test.
 
 A local Windows `git pull` is only required when that checkout will actually be
 used for subsequent local work.
 
-Direct commits to `main` are permitted only for explicitly justified exception
-cases. The justification must be recorded in the pull request, release, or
-commit context as appropriate.
+Normal repository changes reach `main` only through an explicitly approved pull
+request merge. There is no routine direct-commit exception for `main`.
+
+## Repository write failure and incident handling
+
+A failed write, missing capability, or unexpected tool result is a hard stop.
+Do not improvise by switching to another write action, omitting required
+arguments, writing to the default branch, moving refs, or using a destructive
+fallback.
+
+Before any further repository mutation, report the failure and obtain any new
+approval that the changed situation requires.
+
+Direct `main` ref updates, force updates, history rewrites, and other destructive
+recovery actions require explicit human approval. The sole containment exception
+is an assistant-caused unexpected mutation where delaying containment would
+increase risk. In that case, perform only the minimum immediate containment
+needed and then report the incident prominently without delay.
+
+Every unexpected repository mutation or workflow violation must be reported
+with all of the following:
+
+- root cause;
+- affected refs/files and practical impact;
+- remediation performed;
+- read-only verification of the final repository state.
 
 ## AI and human responsibility
 
@@ -46,11 +86,18 @@ Connected AI tooling should perform available repository operations itself
 when safe and technically possible, including branch creation, implementation,
 validation, push, PR creation/update, diff inspection, and CI inspection.
 
+Recurring repository, validation, pull-request, release-preparation, and handoff
+steps should be automated or standardized whenever this can be done safely and
+repeatably.
+
 Do not ask the human operator to repeat Git or GitHub steps that connected AI
 tooling can already perform.
 
 The human operator should normally be involved only for:
 
+- the explicit approval gate before worker/repository implementation begins;
+- explicit approval of destructive repository actions;
+- explicit pull-request merge and release approval;
 - explicit approval of disruptive runtime actions;
 - actions for which no trusted Home Assistant connector/API is available;
 - browser or physical-device interaction that cannot be automated safely;
