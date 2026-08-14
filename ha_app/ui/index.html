@@ -14,7 +14,6 @@
       <div class="global-status" aria-label="Status">
         <span id="spotify-status" class="status-chip"></span>
         <span id="preview-status" class="status-chip"></span>
-        <span id="schedule-status" class="status-chip"></span>
         <button id="help-button" type="button" aria-label="Help">?</button>
       </div>
     </header>
@@ -28,13 +27,7 @@
         </div>
         <table>
           <thead>
-            <tr>
-              <th data-i18n="track_title" data-sort="track_name"></th>
-              <th data-i18n="artist" data-sort="artist_name"></th>
-              <th data-i18n="score" data-sort="combined_score"></th>
-              <th data-i18n="plays" data-sort="play_count"></th>
-              <th data-i18n="last_played" data-sort="last_played"></th>
-            </tr>
+            <tr id="track-columns"></tr>
           </thead>
           <tbody id="tracks"></tbody>
         </table>
@@ -51,7 +44,6 @@
         <section>
           <h2 data-i18n="actions"></h2>
           <div id="actions"></div>
-          <p id="action-message" role="alert"></p>
         </section>
       </aside>
     </div>
