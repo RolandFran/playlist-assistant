@@ -1,48 +1,48 @@
-# Playlist Assistant Design Principles
+# Playlist Assistant – Designprinzipien
 
-Status: authoritative product and UX principles
+**Status:** verbindliche Produkt- und UX-Prinzipien
 
-## Keep detailed music intelligence inside Playlist Assistant
+## Detaillierte Musikdaten bleiben im Playlist Assistant
 
-Playlist Assistant owns detailed music data, analysis, selection logic, source relationships, metadata enrichment, classifications, and track-level views.
+Playlist Assistant besitzt die detaillierten Musikdaten, Analysen, Selection-Logik, Source-Beziehungen, Metadata-Enrichment, Klassifikationen und Track-Ansichten.
 
-Home Assistant is the control and automation surface. It should expose only deliberately chosen actions, concise status, and useful aggregate sensors.
+Home Assistant ist die Steuerungs- und Automatisierungsebene. Dort werden nur bewusst ausgewählte Actions, kompakte Statusinformationen und sinnvolle aggregierte Sensoren bereitgestellt.
 
-Do not represent large track-level datasets as large numbers of Home Assistant entities.
+Große Track-Datenmengen dürfen nicht als große Anzahl von Home-Assistant-Entities abgebildet werden.
 
-New metrics should first be implemented and evaluated inside Playlist Assistant. Only metrics that prove useful for Home Assistant automations or dashboards should later become sensors.
+Neue Kennzahlen werden zuerst im Playlist Assistant umgesetzt und bewertet. Erst wenn sich ein konkreter Nutzen für Home-Assistant-Automationen oder Dashboards zeigt, werden daraus Sensoren.
 
-## Selection is not output
+## Selection ist nicht Output
 
-The user should be able to inspect one concrete selection and then decide what to do with that exact result.
+Der Nutzer soll eine konkrete Selection ansehen können und anschließend entscheiden, was mit genau diesem Ergebnis geschieht.
 
-Primary output actions are:
+Primäre Output-Aktionen sind:
 
-- **Play** — play the selection directly.
-- **Save** — save the selection as a Spotify playlist.
+- **Play** – Selection direkt abspielen.
+- **Save** – Selection als Spotify-Playlist speichern.
 
-Play and Save must operate on the same selection rather than independently recomputing it.
+Play und Save müssen auf derselben Selection arbeiten und dürfen sie nicht unabhängig voneinander neu berechnen.
 
-## Keep the normal UI simple and make analysis optional
+## Normale UI einfach halten, Analyse optional einblenden
 
-The primary track table should remain compact. Additional analytical information should be exposed through optional **column groups**, not primarily through per-row expansion.
+Die primäre Track-Tabelle bleibt kompakt. Zusätzliche Analyseinformationen werden bevorzugt über optionale **Spaltengruppen** eingeblendet und nicht primär über das Aufklappen einzelner Zeilen.
 
-A user who enables an analytical dimension usually wants to compare that dimension across the complete table. Column groups should therefore support sorting and filtering across all tracks.
+Wer eine analytische Dimension aktiviert, möchte sie normalerweise über die gesamte Tabelle vergleichen. Spaltengruppen sollen deshalb Sortierung und Filterung über alle Tracks unterstützen.
 
-Potential groups include Playback, Selection, Sources, Track, Metadata, Audio Features, Classification, and Data Quality.
+Mögliche Gruppen sind Wiedergabe, Selection, Sources, Track, Metadaten, Audio Features, Klassifikation und Datenqualität.
 
-## Explain selections
+## Auswahl nachvollziehbar machen
 
-Playlist Assistant should favor transparent selection logic. Where useful, the UI should make it possible to understand why a track was selected, including score components, source, ranking, and later metadata or profile rules.
+Playlist Assistant soll transparente Selection-Logik bevorzugen. Wo sinnvoll, soll die UI erklären können, warum ein Track ausgewählt wurde, zum Beispiel über Score-Komponenten, Source, Rang und später Metadaten- oder Profilregeln.
 
-## Preserve enriched knowledge
+## Angereichertes Wissen erhalten
 
-Metadata belongs to the track/catalog layer, not to an individual playlist membership. Removing a playlist from active sources must not delete already acquired enrichment for tracks that were previously relevant.
+Metadaten gehören zur Track-/Katalogebene und nicht zu einer einzelnen Playlist-Mitgliedschaft. Das Entfernen einer Playlist aus den aktiven Sources darf bereits erworbene Zusatzdaten ehemals relevanter Tracks nicht löschen.
 
-## External metadata must remain replaceable
+## Externe Metadaten austauschbar halten
 
-Provider-specific data should be normalized behind a provider-independent model and retain provenance where practical. The selection engine and UI should not depend directly on one provider's schema.
+Provider-spezifische Daten werden hinter einem provider-unabhängigen Modell normalisiert und behalten, soweit sinnvoll, ihre Herkunft (Provenance). Selection Engine und UI dürfen nicht direkt vom Schema eines einzelnen Providers abhängig sein.
 
-## Stability before expansion
+## Stabilität vor Erweiterung
 
-Beta stabilization has precedence over new product features. Future documentation exists to avoid architectural dead ends and preserve decisions, not to expand the current implementation scope prematurely.
+Beta-Stabilisierung hat Vorrang vor neuen Produktfeatures. Die Zukunftsdokumentation soll Architektur-Sackgassen vermeiden und Ideen erhalten, aber den aktuellen Implementierungsumfang nicht vorzeitig erweitern.
