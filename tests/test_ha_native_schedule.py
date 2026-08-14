@@ -1,11 +1,43 @@
 from datetime import datetime, timedelta, timezone
 import asyncio
+import inspect
 import unittest
 
 from custom_components.playlist_assistant.native import NativeSchedule, history_gap
 
 
 class NativeScheduleTests(unittest.TestCase):
+    def test_registered_callbacks_are_async_and_log_the_full_daily_lifecycle(self):
+        callbacks = {}
+        runs = []
+
+        def interval(value, callback):
+            callbacks["history"] = callback
+            return lambda: callbacks.pop("history", None)
+
+        def daily(hour, minute, callback):
+            callbacks["today"] = callback
+            return lambda: callbacks.pop("today", None)
+
+        async def run_daily():
+            runs.append("today")
+
+        schedule = NativeSchedule(interval, daily, lambda: None, run_daily)
+        with self.assertLogs("custom_components.playlist_assistant.native", "INFO") as logs:
+            schedule.configure(90, True, "17:22")
+            self.assertTrue(inspect.iscoroutinefunction(callbacks["history"]))
+            self.assertTrue(inspect.iscoroutinefunction(callbacks["today"]))
+            asyncio.run(callbacks["today"]())
+            schedule.stop()
+
+        output = " ".join(logs.output)
+        self.assertEqual(runs, ["today"])
+        self.assertIn("daily_schedule_registered time=17:22 second=0", output)
+        self.assertIn("scheduled_callback_fired job=today", output)
+        self.assertIn("scheduled_run_started job=today", output)
+        self.assertIn("scheduled_run_completed job=today", output)
+        self.assertIn("daily_schedule_callback_removed", output)
+
     def test_reconfiguration_unregisters_old_callbacks_before_registering_new_ones(self):
         calls = []
         def interval(value, callback):

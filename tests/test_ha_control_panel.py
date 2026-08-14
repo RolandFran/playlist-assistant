@@ -63,6 +63,24 @@ class ControlPanelTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "blank"):
             self.panel.save_settings({"target_playlist_name": "  "})
 
+    def test_slider_save_changes_configuration_without_recalculating_tracks(self):
+        workflow = _Workflow()
+        self.panel = ControlPanel(self.paths, spotify_available=lambda: True, workflow=workflow)
+        self.paths.today_tracks_path.write_text(json.dumps({"tracks": [{
+            "track_name": "Existing selection",
+            "artist_name": "Artist",
+            "combined_score": 42,
+            "play_count": 3,
+        }]}), encoding="utf-8")
+        before = self.panel.state()["today"]
+
+        after = self.panel.save_settings({"rare_weight": 75})
+
+        self.assertEqual(after["settings"]["rare_weight"], 75)
+        self.assertEqual(after["settings"]["long_weight"], 25)
+        self.assertEqual(after["today"], before)
+        self.assertEqual(workflow.calls, [])
+
     def test_spotify_actions_are_blocked_but_local_calculation_is_not_preblocked(self):
         with self.assertRaisesRegex(RuntimeError, "not connected"):
             self.panel.run_action("history")

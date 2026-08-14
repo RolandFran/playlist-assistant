@@ -43,10 +43,26 @@ class PreviewWorkflowTests(unittest.TestCase):
     def test_run_performs_the_complete_ordered_pipeline(self):
         self.flow.run()
         self.assertEqual(self.calls, ["history", "sources", "score", "publish"])
+        self.assertEqual(
+            self.flow.storage.get_job_status("today").last_success_at,
+            "2026-08-10T00:00:00+00:00",
+        )
+        self.assertEqual(
+            self.flow.storage.get_job_status("history").last_success_at,
+            "2026-08-10T00:00:00+00:00",
+        )
 
     def test_sync_performs_history_and_source_sync(self):
         self.flow.sync()
         self.assertEqual(self.calls, ["history", "sources"])
+        self.assertEqual(
+            self.flow.storage.get_job_status("history").last_success_at,
+            "2026-08-10T00:00:00+00:00",
+        )
+
+    def test_preview_does_not_change_full_execution_status(self):
+        self.flow.preview()
+        self.assertIsNone(self.flow.storage.get_job_status("today"))
 
     def test_preview_on_a_fresh_database_explains_that_sync_is_required(self):
         fresh = TemporaryDirectory()

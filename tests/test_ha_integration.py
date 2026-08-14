@@ -1,6 +1,7 @@
 """HA-shaped integration tests without requiring a full Core installation."""
 import asyncio
 import importlib
+import inspect
 import sys
 import types
 import unittest
@@ -112,3 +113,16 @@ class IntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def test_daily_callback_is_registered_only_at_second_zero(self):
         daily = next(track for track in self.hass.tracks if track[0] == "daily")
         self.assertEqual(daily[3], 0)
+        self.assertTrue(inspect.iscoroutinefunction(daily[4]))
+
+    async def test_schedule_service_logs_receipt_and_applied_registration(self):
+        handler = self.hass.services.handlers[("playlist_assistant", "reconfigure_schedule")]
+        with self.assertLogs("custom_components.playlist_assistant", "INFO") as logs:
+            await handler(types.SimpleNamespace(data={
+                "history_interval_minutes": 45,
+                "daily_enabled": True,
+                "daily_time": "17:22",
+            }))
+        output = " ".join(logs.output)
+        self.assertIn("schedule_change_received history_interval_minutes=45 daily_time=17:22 daily_enabled=True", output)
+        self.assertIn("schedule_change_applied history_interval_minutes=45 daily_time=17:22 daily_enabled=True", output)

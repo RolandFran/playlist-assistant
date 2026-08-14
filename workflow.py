@@ -7,12 +7,14 @@ from __future__ import annotations
 
 import hashlib
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from threading import Lock
 
 from application_storage import ApplicationStorage
 from db_state import get_current_input_fingerprint
 from run import run_history, run_publish, run_score, run_sources
+from client import SpotifyRateLimited
+from runtime import JobResult
 
 
 class PreviewRequiredError(RuntimeError):
@@ -51,12 +53,7 @@ class PlaylistWorkflow:
 
     def sync(self):
         def work():
-            try:
-                self.runners["history"]()
-            except SpotifyRateLimited:
-                raise
-            except Exception as error:
-                raise RuntimeError(f"History sync failed: {error}") from error
+            self._run_history_step()
             try:
                 self.runners["sources"]()
             except SpotifyRateLimited:
@@ -93,15 +90,72 @@ class PlaylistWorkflow:
 
     def run(self):
         def work():
-            self.runners["history"]()
-            self.runners["sources"]()
-            self.runners["score"](self.storage.load_runtime_config())
-            self.storage.save_preview(self.fingerprint(), self.now())
-            self.runners["publish"]()
+            started_at = self.now()
+            step = "history"
+            try:
+                self._run_history_step()
+                step = "sources"
+                self.runners["sources"]()
+                step = "score"
+                self.runners["score"](self.storage.load_runtime_config())
+                self.storage.save_preview(self.fingerprint(), self.now())
+                step = "publish"
+                self.runners["publish"]()
+            except Exception as error:
+                self._record_job("today", False, started_at, failed_step=step, error=error)
+                raise
+            self._record_job("today", True, started_at)
         return self._execute("running", work)
+
+    def _run_history_step(self):
+        """Run History and persist its existing finite-job status contract."""
+        started_at = self.now()
+        try:
+            self.runners["history"]()
+        except Exception as error:
+            self._record_job("history", False, started_at, failed_step="history", error=error)
+            if isinstance(error, SpotifyRateLimited):
+                raise
+            raise RuntimeError(f"History sync failed: {error}") from error
+        self._record_job("history", True, started_at)
+
+    def _record_job(self, job_name, success, started_at, *, failed_step=None, error=None):
+        """Keep status observational if SQLite status persistence ever fails."""
+        ended_at = self.now()
+        try:
+            self.storage.record_job_result(JobResult(
+                job_name=job_name,
+                success=success,
+                started_at=started_at,
+                ended_at=ended_at,
+                duration_seconds=(ended_at - started_at).total_seconds(),
+                failed_step=failed_step,
+                error=error,
+            ))
+        except Exception:
+            pass
 
     def _execute(self, _state, work):
         # Blocking is intentional: every caller shares this one lock, so a
         # manual action cannot race a scheduled Spotify operation.
         with self._lock:
-            return work()
+            deadline = self.storage.get_spotify_retry_after_until()
+            if deadline:
+                retry_at = datetime.fromisoformat(deadline)
+                if self.now() < retry_at:
+                    raise RuntimeError(
+                        "Spotify ist wegen eines Rate Limits bis "
+                        f"{retry_at.astimezone().strftime('%H:%M:%S')} gesperrt."
+                    )
+            try:
+                return work()
+            except SpotifyRateLimited as error:
+                if error.retry_after is not None:
+                    retry_at = self.now() + timedelta(seconds=error.retry_after)
+                    self.storage.set_spotify_retry_after_until(retry_at)
+                    raise RuntimeError(
+                        "Spotify Rate Limit erreicht"
+                        + (" (QUOTA_EXCEEDED)" if error.reason == "QUOTA_EXCEEDED" else "")
+                        + f". Erneut möglich ab {retry_at.astimezone().strftime('%H:%M:%S')}."
+                    ) from error
+                raise

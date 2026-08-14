@@ -57,9 +57,20 @@ async def async_setup_entry(hass, entry):
         await configure(coordinator.data["schedule"])
     async def reconfigure_schedule(call):
         values = call.data
-        LOGGER.info("daily_schedule_change_received time=%s enabled=%s", values.get("daily_time"), values.get("daily_enabled"))
+        LOGGER.info(
+            "schedule_change_received history_interval_minutes=%s daily_time=%s daily_enabled=%s",
+            values.get("history_interval_minutes"),
+            values.get("daily_time"),
+            values.get("daily_enabled"),
+        )
         await configure(values)
         await coordinator.async_schedule_changed(values)
+        LOGGER.info(
+            "schedule_change_applied history_interval_minutes=%s daily_time=%s daily_enabled=%s",
+            values.get("history_interval_minutes"),
+            values.get("daily_time"),
+            values.get("daily_enabled"),
+        )
     async def handler(call): await execute(call.service)
     if bridge:
         hass.services.async_register(DOMAIN, "reconfigure_schedule", reconfigure_schedule)
