@@ -1,36 +1,37 @@
-# Direct Playback and Play/Save Outputs
+# Direktes Abspielen und Play/Save
 
-Status: Idea
-Priority: P1
-Area: Playback
-Depends on: Beta stability
+**Status:** Idee  
+**Priorität:** P1  
+**Bereich:** Playback / Output  
+**Voraussetzung:** Beta-Stabilität
 
-## Goal
+## Ziel
 
-Treat direct Spotify playback as a primary output of a generated selection instead of requiring the user to open a generated Spotify playlist manually.
+Eine erzeugte Selection soll nicht zwingend zuerst als Spotify-Playlist veröffentlicht werden müssen. Der Nutzer soll mit derselben konkreten Selection zwei getrennte Möglichkeiten haben:
 
-## Product model
+- **Play** – direkt über Spotify abspielen.
+- **Save** – dauerhaft als Spotify-Playlist speichern.
 
-A concrete selection can have two separate outputs:
+Damit wird die ursprüngliche Kernidee des Playlist Assistant direkter umgesetzt: Musik auswählen, die der Nutzer wieder hören möchte, und diese Auswahl unmittelbar abspielen.
 
-- **Play** — start that exact selection through Spotify playback.
-- **Save** — persist that exact selection as a Spotify playlist, with a user-defined name or an existing managed target.
+## Leitlinien
 
-Play and Save must not independently recalculate the selection.
-
-## Spotify considerations
-
-Prefer starting playback from the selected track URIs over trying to build a large Spotify queue one item at a time. Spotify playback/device capability and Premium requirements must be verified during implementation.
+- **Selection und Output sind getrennt.**
+- Play und Save arbeiten auf exakt derselben Selection.
+- Save darf nicht still eine andere Selection neu berechnen.
+- Eine Spotify-Playlist ist ein optionaler dauerhafter Output, nicht der technische Speicher der Selection.
+- Die Selection selbst bleibt im Playlist Assistant verfügbar.
 
 ## Home Assistant
 
-Direct playback should eventually be available as a Home Assistant action so it can be placed beside ordinary media-player controls in a dashboard.
+Für Home Assistant ist insbesondere **Play** als Action interessant, damit die aktuelle Selection direkt aus einem Dashboard oder einer Automation gestartet werden kann.
 
-Likely useful actions are Play current selection and Generate/New selection. Saving a playlist is more naturally a Playlist Assistant UI action unless a concrete automation use case emerges.
+Detaillierte Trackdaten bleiben im Playlist Assistant; Home Assistant dient nur als Steuerungsebene.
 
-## Open questions
+## Offene technische Fragen
 
-- Device selection versus currently active Spotify Connect device.
-- Exact behavior when no controllable device is available.
-- OAuth scopes and capability reporting.
-- How playback should behave when part of a daily selection was already heard.
+- Welche Spotify-Playback-/Queue-API-Kombination ist für eine größere Selection robust genug?
+- Wie werden aktives Spotify-Gerät und fehlendes verfügbares Playback-Device behandelt?
+- Welche Premium-/Scope-Anforderungen gelten beim tatsächlichen Implementierungszeitpunkt?
+
+Diese Fragen werden erst bei der konkreten Umsetzung entschieden.
