@@ -41,11 +41,13 @@ class IngressUiRegressionTests(unittest.TestCase):
                 "playlist": "Neue Playlist", "today_size": "Länge", "target_playlist_name": "Name",
                 "artist_gap": "Abstand zwischen Songs desselben Künstlers",
                 "history_poll_minutes": "Hörverlauf aktualisieren alle", "minutes": "Minuten",
+                "help_gap": "Abstand zwischen Songs desselben Künstlers",
             },
             "en": {
                 "playlist": "New playlist", "today_size": "Length", "target_playlist_name": "Name",
                 "artist_gap": "Songs between tracks by the same artist",
                 "history_poll_minutes": "Update listening history every", "minutes": "minutes",
+                "help_gap": "Songs between tracks by the same artist",
             },
         }
         for language, values in expected.items():
