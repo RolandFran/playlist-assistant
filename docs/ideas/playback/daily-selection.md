@@ -1,33 +1,49 @@
-# Daily Selection Model
+# Vereinfachtes tägliches Selection-Modell
 
-Status: Idea
-Priority: P1
-Area: Playback / Scheduling
-Depends on: Beta stability, direct playback foundation
+**Status:** Idee  
+**Priorität:** P1  
+**Bereich:** Playback / Scheduling  
+**Voraussetzung:** Beta-Stabilität und Direct Playback
 
-## Goal
+## Ziel
 
-Generalize the current `Today` behavior into one fixed daily selection that can be played, resumed by rebuilding the unheard remainder, manually regenerated, or saved as a Spotify playlist.
+Das Tagesmodell soll möglichst einfach bleiben. Ein tägliches Profil erzeugt einmal pro Tag eine feste Selection, zum Beispiel 200 Tracks.
 
-## Proposed behavior
+Die Selection bleibt für diesen Tag bestehen und wird nicht nach jedem gehörten Track permanent erweitert.
 
-At the configured daily time, Playlist Assistant creates one concrete selection, for example 200 tracks.
+## Bedienmodell
 
-- **Play** sends the currently unheard remainder of that day's selection to Spotify.
-- **New** explicitly discards/regenerates the current daily selection using the latest history and rules.
-- **Save** persists the current selection as a Spotify playlist.
-- The next scheduled day creates a new daily selection.
+Für die aktuelle Daily Selection genügen im Kern:
 
-Example: 200 tracks are generated, 20 are heard, and the user later starts another Spotify playlist. Pressing Play again should restore the remaining 180 tracks rather than append 20 newly selected tracks.
+- **Play** – spielt die heute noch nicht gehörten Tracks der aktuellen Selection.
+- **New** – verwirft die aktuelle Selection bewusst und erzeugt jetzt eine neue vollständige Selection.
+- **Save** – speichert die aktuelle Selection optional als Spotify-Playlist.
 
-## Non-goal
+Beispiel:
 
-Do not add a continuously replenished radio queue by default. Daily regeneration already gives a bounded rolling mechanism and keeps the model understandable.
+- 04:00: 200 Tracks werden erzeugt.
+- 20 davon werden gehört.
+- Der Nutzer startet zwischenzeitlich andere Musik in Spotify.
+- Er drückt später erneut Play.
+- Playlist Assistant verwendet die verbleibenden 180 Tracks derselben Daily Selection.
+- Am nächsten Tag wird planmäßig eine neue Selection erzeugt.
 
-## Data requirement
+## Kein eigener Rolling-Radio-Modus
 
-The concrete daily selection must remain persistent in Playlist Assistant even when no Spotify playlist is created. The system must be able to identify which tracks from that selection have already been heard during its lifetime using the existing listening-history model.
+Ein permanentes Nachfüllen auf immer 200 offene Tracks ist für dieses Tagesmodell nicht erforderlich. Die tägliche Neuerzeugung übernimmt bereits die gewünschte Rotation auf einer klar begrenzten Zeitskala.
 
 ## Home Assistant
 
-The useful dashboard-facing controls are intentionally small: Play current selection and New selection. Detailed selection management stays in Playlist Assistant.
+Als zusätzliche HA-Steuerungen sind insbesondere sinnvoll:
+
+- aktuelle Selection abspielen
+- Selection bewusst neu erzeugen
+
+Save ist eher eine Funktion der Playlist-Assistant-Oberfläche, kann später aber bei konkretem Automationsbedarf ebenfalls exponiert werden.
+
+## Offene Fragen
+
+- Wie wird zuverlässig bestimmt, welche Tracks der aktuellen Daily Selection heute bereits gehört wurden?
+- Was geschieht bei einer manuellen Neuerzeugung mit der vorherigen Selection – nur ersetzen oder für Diagnose/Verlauf archivieren?
+
+Die Lösung soll möglichst ohne zusätzliche Playback-Session-Komplexität auskommen.
