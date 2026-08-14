@@ -1,56 +1,56 @@
-# Playlist Assistant Product Direction
+# Playlist Assistant – Produktrichtung
 
-Status: authoritative product direction
+**Status:** verbindliche Produktrichtung
 
-Playlist Assistant is not merely a generator for one Spotify playlist named `Today`. `Today` is a useful default and current implementation, not the product definition.
+Playlist Assistant ist langfristig nicht nur ein Generator für eine Spotify-Playlist namens `Today`. `Today` ist ein sinnvoller Default und Teil der aktuellen Implementierung, aber nicht die Definition des Produkts.
 
-The long-term purpose is to help users hear music they already know they like, control how that music is selected, and maintain and protect their Spotify listening environment over time.
+Das langfristige Ziel ist, Nutzern dabei zu helfen, Musik, von der sie bereits wissen, dass sie ihnen gefällt, tatsächlich wieder zu hören, die Auswahl kontrollierbar zu gestalten und ihre Spotify-Musikumgebung langfristig zu pflegen und zu schützen.
 
-## Core product model
+## Zentrales Produktmodell
 
-The central product object is a **selection**: a concrete ordered set of tracks produced from user-defined sources, listening history, metadata, and selection rules.
+Das zentrale Objekt ist eine **Selection**: eine konkrete, geordnete Menge von Tracks, die aus Quellen, Hörhistorie, Metadaten und Auswahlregeln erzeugt wird.
 
-A selection is distinct from its output.
+Eine Selection ist nicht dasselbe wie ihr Output.
 
-- **Play** starts the current selection directly through Spotify playback.
-- **Save** persists the current selection as a Spotify playlist.
+- **Play** spielt die aktuelle Selection direkt über Spotify ab.
+- **Save** speichert die aktuelle Selection dauerhaft als Spotify-Playlist.
 
-A Spotify playlist is therefore one possible output of Playlist Assistant, not the internal definition of a selection.
+Eine Spotify-Playlist ist damit ein möglicher Output von Playlist Assistant und nicht die interne Definition einer Selection.
 
-## Profiles
+## Profile
 
-A profile describes how a selection should be built. Profiles may later combine source playlists, scoring, genre or mood groups, exclusions, artist spacing, size, and other rules.
+Ein Profil beschreibt, wie eine Selection erzeugt werden soll. Profile können später Source-Playlists, Scoring, Genre- oder Mood-Gruppen, Ausschlüsse, Artist-Abstand, Größe und weitere Regeln kombinieren.
 
-The same profile may be used once or on a schedule. A daily selection is one scheduled form of the same model rather than a separate product concept.
+Dasselbe Profil kann einmalig oder nach Zeitplan ausgeführt werden. Eine tägliche Selection ist nur eine geplante Ausführung desselben Modells und kein separates Produktkonzept.
 
-## Daily use
+## Tagesmodell
 
-For a daily profile, Playlist Assistant may create one fixed daily selection. Replaying it later should use the still-unheard remainder of that selection. A manual New action may explicitly discard and regenerate it. The next scheduled day creates the next selection.
+Für ein tägliches Profil kann Playlist Assistant einmal pro Tag eine feste Selection erzeugen. Wird sie später erneut abgespielt, soll der noch nicht gehörte Rest verwendet werden. Eine manuelle **New**-Aktion kann die aktuelle Selection bewusst verwerfen und neu erzeugen. Am nächsten geplanten Tag entsteht automatisch die nächste Selection.
 
-A continuously replenished radio queue is not required for this use case; daily regeneration already provides a bounded rolling mechanism.
+Eine permanent nachwachsende Radio-Queue ist dafür nicht notwendig. Die tägliche Neuerzeugung bildet bereits einen begrenzten Rolling-Mechanismus.
 
-## Personal music catalog
+## Persönlicher Musikkatalog
 
-Listening history and selection eligibility are separate concepts.
+Hörhistorie und Relevanz für Playlist Assistant sind getrennte Konzepte.
 
-- Listening history may contain every observed play.
-- A track becomes relevant for metadata enrichment when it has occurred in an included/source playlist at least once.
-- Once a track has become relevant, its enriched metadata should not be discarded merely because that playlist is later removed from the active selection sources.
+- Die Hörhistorie kann alle beobachteten Wiedergaben enthalten.
+- Ein Track wird für Metadata-Enrichment relevant, sobald er mindestens einmal in einer eingebundenen Source-Playlist vorkam.
+- Sobald ein Track relevant geworden ist, dürfen seine angereicherten Metadaten nicht verloren gehen, nur weil die betreffende Playlist später nicht mehr als aktive Source verwendet wird.
 
-Source playlists determine eligibility; they do not own track metadata.
+Source-Playlists bestimmen die aktuelle Auswahlberechtigung; sie besitzen nicht die Track-Metadaten.
 
-## Product areas
+## Produktbereiche
 
-Long-term product areas include:
+Langfristige Produktbereiche sind unter anderem:
 
-- Discover and rediscover
-- Selection and control
-- Play and save
-- Profiles, genres, moods, and smart grouping
-- Repair of unavailable or replaced tracks
-- Playlist protection and backup
-- Insights and listening statistics
-- Data quality and history integrity
-- Track identity, metadata, and provenance
+- Entdecken und Wiederentdecken
+- Selection und Kontrolle
+- Play und Save
+- Profile, Genres, Moods und Smart Grouping
+- Reparatur nicht verfügbarer oder ersetzter Tracks
+- Playlist-Schutz und Backups
+- Insights und Hörstatistiken
+- Datenqualität und Integrität der Hörhistorie
+- Track-Identität, Metadaten und Provenance
 
-These areas describe direction only. The current development priority remains Beta stabilization.
+Diese Bereiche beschreiben die Richtung. Die aktuelle Entwicklungspriorität bleibt die **Beta-Stabilisierung**.
