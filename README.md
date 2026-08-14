@@ -174,16 +174,11 @@ If an older ADR conflicts with `PROJECT.md`, the current state documented in `PR
 
 ## Development workflow
 
-`main` is the stable, approved state. Product-code changes are made on worker
-or feature branches and reviewed through pull requests before merging into
-`main`. The binding development, release, language, and worker handoff rules
-are in [`docs/development.md`](docs/development.md).
-
-After an approved merge, update the local checkout with:
-
-```powershell
-git pull
-```
+The canonical workflow, repository-safety rules, worker assignment format, and
+approval gates are in the
+[AI-assisted development workflow](https://github.com/RolandFran/projects-wiki/blob/main/shared/ai-assisted-development-workflow.md).
+Project-specific Home Assistant runtime and validation notes are in
+[`docs/development.md`](docs/development.md).
 
 ## Home Assistant
 
