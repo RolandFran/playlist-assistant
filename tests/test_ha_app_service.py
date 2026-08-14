@@ -41,13 +41,19 @@ class HomeAssistantServiceTests(unittest.TestCase):
         def urlopen(request, timeout):
             requests.append((request, timeout)); return Response()
 
-        with patch.dict(os.environ, {"SUPERVISOR_TOKEN": "token"}, clear=True), patch("ha_app.service.urllib.request.urlopen", urlopen):
+        with self.assertLogs("playlist_assistant.ha_app", "INFO") as logs, \
+                patch.dict(os.environ, {"SUPERVISOR_TOKEN": "token"}, clear=True), \
+                patch("ha_app.service.urllib.request.urlopen", urlopen):
             self.service._notify_schedule_changed(RuntimeConfig(today_schedule_time="17:28"))
 
         request, timeout = requests[0]
         self.assertEqual(timeout, 5)
         self.assertEqual(request.full_url, "http://supervisor/core/api/services/playlist_assistant/reconfigure_schedule")
         self.assertEqual(json.loads(request.data), {"history_interval_minutes": 90, "daily_enabled": True, "daily_time": "17:28"})
+        self.assertIn(
+            "schedule_change_sent active_daily_schedule=17:28 ha_response=[] acknowledgement_only=true",
+            " ".join(logs.output),
+        )
 
     def test_schedule_change_rejects_an_acknowledgement_with_the_wrong_shape(self):
         class Response:
