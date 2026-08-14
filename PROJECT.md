@@ -338,11 +338,14 @@ Use instead:
 
 ## Repository change workflow
 
-- Planning, architecture, and review happen primarily in the normal ChatGPT chat.
-- Codex/Work is used selectively for clearly scoped repository and implementation work.
-- Git is the authoritative technical reference between chat and Work.
-- The mandatory development and release workflow is documented in `docs/development.md`.
-- Hermes is not currently a necessary intermediate step for this project and should not consume additional Work/Codex capacity without a concrete benefit.
+The canonical cross-project governance for Orchestrator/Worker assignments,
+repository safety, approvals, and delivery is
+[`shared/ai-assisted-development-workflow.md`](https://github.com/RolandFran/projects-wiki/blob/main/shared/ai-assisted-development-workflow.md).
+[`docs/development.md`](docs/development.md) contains only the
+Playlist Assistant-specific technical and Home Assistant runtime notes.
+
+Hermes is not currently a necessary intermediate step for this project and
+should not consume additional Work/Codex capacity without a concrete benefit.
 
 ## Repository language convention
 
