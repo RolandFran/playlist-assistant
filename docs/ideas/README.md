@@ -1,34 +1,38 @@
-# Future Ideas Backlog
+# Zukunftsideen – priorisierter Backlog
 
-This directory is the prioritized pool of work intentionally deferred beyond the current stable scope.
+Dieses Verzeichnis ist der zentrale Pool für alles, was bewusst noch nicht umgesetzt wird.
 
-**Current development priority: Beta stabilization.** No item below should interrupt that work unless it becomes necessary to remove a concrete blocker or architectural dead end.
+**Aktuelle Entwicklungspriorität: Beta-Stabilisierung.** Keine der folgenden Ideen soll diese Arbeit unterbrechen, außer sie wird zur Behebung eines konkreten Blockers oder einer erkannten Architektur-Sackgasse notwendig.
 
-Priority describes the intended order of evaluation after Beta stability, not a release commitment.
+Die Priorität beschreibt die vorgesehene Reihenfolge der Prüfung nach einer stabilen Beta. Sie ist keine Release-Zusage. Der Backlog darf bei neuen Erkenntnissen neu priorisiert werden.
 
-## P1 — Next candidates after Beta stabilization
+## P1 – erste Kandidaten nach Beta-Stabilisierung
 
-1. [Direct playback and Play/Save outputs](playback/direct-playback.md)
-2. [Daily selection model](playback/daily-selection.md)
-3. [Extended analytical track table](analysis/extended-track-table.md)
-4. [Metadata provider enrichment](metadata/metadata-providers.md)
+1. [Direktes Abspielen und Play/Save](playback/direct-playback.md)
+2. [Vereinfachtes tägliches Selection-Modell](playback/daily-selection.md)
+3. [Erweiterte Analyse-Tabelle mit Spaltengruppen](analysis/extended-track-table.md)
+4. [Metadata Provider und Track-Enrichment](metadata/metadata-providers.md)
 
-## P2 — Build on the P1 foundation
+## P2 – baut auf der P1-Grundlage auf
 
-5. [Selection profiles and advanced controls](selection/profiles-and-controls.md)
-6. [Genres, mood groups, and smart grouping](classification/genres-moods-smart-groups.md)
-7. [Audio features and sonic analysis](metadata/audio-features.md)
-8. [Insights and statistics](analysis/insights-and-statistics.md)
+5. [Selection-Profile und erweiterte Steuerung](selection/profiles-and-controls.md)
+6. [Genres, Mood-Gruppen und Smart Grouping](classification/genres-moods-smart-groups.md)
+7. [Audio Features und Sonic Analysis](metadata/audio-features.md)
+8. [Insights und Statistiken](analysis/insights-and-statistics.md)
 
-## P3 — Later product areas
+## P3 – spätere Produktbereiche
 
-9. [Lost-track repair and replacement](repair/lost-track-repair.md)
-10. [Playlist backup and protection](protect/playlist-backup.md)
-11. [History integrity and data quality](data-quality/history-integrity.md)
-12. [Multiple accounts and capability handling](accounts/multiple-accounts.md)
+9. [Lost Tracks: Reparatur und Ersatz](repair/lost-track-repair.md)
+10. [Playlist-Backup und Schutz](protect/playlist-backup.md)
+11. [History-Integrität und Datenqualität](data-quality/history-integrity.md)
+12. [Mehrere Accounts und Capability Handling](accounts/multiple-accounts.md)
 
-## Backlog maintenance rule
+## Pflege-Regel
 
-Each durable future idea gets one canonical file in this tree. Further discussion updates that file instead of creating parallel notes. New ideas are added here with a priority. When an idea becomes implemented, its status is updated and the authoritative current behavior is reflected in `PROJECT.md` and, where appropriate, the ADR.
+Jede dauerhafte Zukunftsidee bekommt genau eine kanonische Datei in diesem Verzeichnisbaum. Weitere Gespräche zu derselben Idee aktualisieren diese Datei, statt parallele Notizen anzulegen.
 
-The previous `docs/future-features.md` is retained as a legacy summary/pointer during migration so existing references do not silently break.
+Jede Idea-Datei enthält mindestens Status, Priorität, Bereich, Ziel/Nutzen, bisher bestätigte Leitlinien und offene Fragen. Noch nicht entschiedene Details werden ausdrücklich als offen gekennzeichnet und nicht als Beschluss dargestellt.
+
+Wird eine Idee implementiert, wird ihr Status aktualisiert. Das danach tatsächlich gültige Verhalten wird zusätzlich in `PROJECT.md` und – bei einer technischen Architekturentscheidung – im ADR dokumentiert.
+
+`docs/future-features.md` bleibt während der Migration als Legacy-Verweis bestehen, damit alte Referenzen nicht still brechen. Neue Zukunftsideen werden dort nicht mehr gepflegt.
