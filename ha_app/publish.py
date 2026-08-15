@@ -97,10 +97,11 @@ def resolve_target_playlist(client, target_name, target_playlist_id):
         if playlist.get("id") == target_playlist_id:
             return playlist
 
-    # Preserve the established write path if Spotify does not return the
-    # persisted target in the current playlist listing. Unknown visibility
-    # must still be corrected before tracks are written.
-    return {"id": target_playlist_id}
+    # The current user's playlist listing can omit a persisted private target.
+    # Resolve that target directly so a known-private playlist does not receive
+    # a redundant metadata write. A failed direct lookup aborts publishing
+    # rather than weakening privacy enforcement for an unknown target.
+    return client.get_playlist(target_playlist_id)
 
 
 def prepare_publish_target(client, target_playlist, target_name):
