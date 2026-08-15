@@ -37,6 +37,25 @@ class PublishTargetMetadataTests(unittest.TestCase):
         self.assertEqual(result, {"id": "target", "name": "Test", "public": False})
         client.find_owned_playlist_by_name.assert_not_called()
 
+    def test_persisted_private_target_omitted_from_listing_is_resolved_directly(self):
+        client = Mock()
+        client.get_all_user_playlists.return_value = [
+            {"id": "other", "name": "Other", "public": False},
+        ]
+        client.get_playlist.return_value = {
+            "id": "target",
+            "name": "Test",
+            "public": False,
+        }
+
+        target = publish.resolve_target_playlist(client, "Test", "target")
+        changed = publish.prepare_publish_target(client, target, "Test")
+
+        self.assertEqual(target, {"id": "target", "name": "Test", "public": False})
+        self.assertFalse(changed)
+        client.get_playlist.assert_called_once_with("target")
+        client.prepare_private_playlist.assert_not_called()
+
     def test_matching_private_target_skips_redundant_details_write(self):
         client = Mock()
         target = {"id": "target", "name": "Test", "public": False}
