@@ -5,6 +5,7 @@ import types
 import unittest
 from urllib.parse import parse_qs, urlparse
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 
 class _Response:
@@ -209,6 +210,69 @@ class SpotifyConnectionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             spotify.requests,
             [("GET", "/playlists/persisted-target", {"params": None, "json": None})],
+        )
+
+    async def test_playlist_details_proxy_uses_a_fresh_pre_pr_53_session(self):
+        api_module = importlib.import_module("custom_components.playlist_assistant.api")
+
+        class FreshSession:
+            instances = []
+
+            def __init__(self, hass, entry, implementation):
+                self.hass = hass
+                self.entry = entry
+                self.implementation = implementation
+                self.requests = []
+                self.instances.append(self)
+
+            async def async_request(self, method, url, **kwargs):
+                self.requests.append((method, url, kwargs))
+                return _Response(200, {})
+
+        class ConnectedSpotify:
+            def __init__(self):
+                self.requests = []
+
+            async def async_request(self, method, path, **kwargs):
+                self.requests.append((method, path, kwargs))
+                return {}
+
+        class Request:
+            async def json(self):
+                return {
+                    "operation": "playlist_details",
+                    "path": {"playlist_id": "persisted-target"},
+                    "json": {"name": "Test", "public": False},
+                }
+
+        entry = object()
+        implementation = object()
+        spotify = ConnectedSpotify()
+        hass = types.SimpleNamespace(data={"playlist_assistant": {"entry": {"entry": entry, "spotify": spotify}}})
+        with patch.object(api_module.config_entry_oauth2_flow, "OAuth2Session", FreshSession), patch.object(
+            api_module.config_entry_oauth2_flow,
+            "async_get_config_entry_implementation",
+            AsyncMock(return_value=implementation),
+            create=True,
+        ) as get_implementation:
+            response = await api_module.SpotifyProxyView(hass).post(Request())
+
+        self.assertEqual(response["status_code"], 200)
+        get_implementation.assert_awaited_once_with(hass, entry)
+        self.assertEqual(len(FreshSession.instances), 1)
+        self.assertIs(FreshSession.instances[0].hass, hass)
+        self.assertIs(FreshSession.instances[0].entry, entry)
+        self.assertIs(FreshSession.instances[0].implementation, implementation)
+        self.assertEqual(spotify.requests, [])
+        self.assertEqual(
+            FreshSession.instances[0].requests,
+            [
+                (
+                    "PUT",
+                    "https://api.spotify.com/v1/playlists/persisted-target",
+                    {"params": None, "json": {"name": "Test", "public": False}},
+                )
+            ],
         )
 
     def test_config_flow_requests_only_profile_scope_and_exact_redirect(self):

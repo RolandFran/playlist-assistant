@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from homeassistant.components.http import HomeAssistantView
+from homeassistant.helpers import config_entry_oauth2_flow
 from .const import DOMAIN
 from .spotify import SpotifyApi, SpotifyAuthError, SpotifyConnectionError, SpotifyRequestError
 
@@ -20,11 +21,14 @@ class SpotifyProxyView(HomeAssistantView):
     async def post(self, request):
         try:
             body = await request.json(); method, template = _OPERATIONS[body["operation"]]
-            # Reuse the authenticated session established by the integration.
-            # Creating a new OAuth2Session here caused direct playlist metadata
-            # requests to lose the connection that the running integration had
-            # already proved usable.
-            api = next(item["spotify"] for item in self.hass.data.get(DOMAIN, {}).values() if item.get("spotify"))
+            if body["operation"] == "playlist_details":
+                # A/B diagnostic: use the pre-#53 per-request session only for
+                # the metadata PUT. All other proxy operations retain #53 reuse.
+                entry = next(item["entry"] for item in self.hass.data.get(DOMAIN, {}).values() if item.get("spotify"))
+                implementation = await config_entry_oauth2_flow.async_get_config_entry_implementation(self.hass, entry)
+                api = SpotifyApi(config_entry_oauth2_flow.OAuth2Session(self.hass, entry, implementation))
+            else:
+                api = next(item["spotify"] for item in self.hass.data.get(DOMAIN, {}).values() if item.get("spotify"))
             return self.json(await api.async_request(method, template.format(**body.get("path", {})), params=body.get("params"), json=body.get("json")))
         except SpotifyRequestError as error:
             headers = {"Retry-After": error.retry_after} if error.retry_after else None
