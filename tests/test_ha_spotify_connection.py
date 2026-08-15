@@ -89,6 +89,11 @@ def _install_ha_stubs():
     exceptions.OAuth2TokenRequestReauthError = type("OAuth2TokenRequestReauthError", (Exception,), {})
     helpers = types.ModuleType("homeassistant.helpers")
     components = types.ModuleType("homeassistant.components")
+    http = types.ModuleType("homeassistant.components.http")
+    class _HomeAssistantView:
+        def json(self, payload, status_code=200, headers=None):
+            return {"payload": payload, "status_code": status_code, "headers": headers}
+    http.HomeAssistantView = _HomeAssistantView
     application_credentials = types.ModuleType("homeassistant.components.application_credentials")
     application_credentials.ClientCredential = type("ClientCredential", (), {})
     core = types.ModuleType("homeassistant.core")
@@ -107,6 +112,7 @@ def _install_ha_stubs():
         "homeassistant.data_entry_flow": data_entry_flow,
         "homeassistant.exceptions": exceptions,
         "homeassistant.components": components,
+        "homeassistant.components.http": http,
         "homeassistant.components.application_credentials": application_credentials,
         "homeassistant.core": core,
         "homeassistant.helpers": helpers,
@@ -177,6 +183,33 @@ class SpotifyConnectionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(caught.exception.status, 400)
         self.assertEqual(caught.exception.detail, "Invalid playlist details")
+
+    async def test_playlist_proxy_reuses_the_connected_integration_session(self):
+        api_module = importlib.import_module("custom_components.playlist_assistant.api")
+
+        class ConnectedSpotify:
+            def __init__(self):
+                self.requests = []
+
+            async def async_request(self, method, path, **kwargs):
+                self.requests.append((method, path, kwargs))
+                return {"id": "persisted-target", "name": "Today", "public": False}
+
+        class Request:
+            async def json(self):
+                return {"operation": "playlist", "path": {"playlist_id": "persisted-target"}}
+
+        spotify = ConnectedSpotify()
+        hass = types.SimpleNamespace(data={"playlist_assistant": {"entry": {"spotify": spotify}}})
+
+        response = await api_module.SpotifyProxyView(hass).post(Request())
+
+        self.assertEqual(response["status_code"], 200)
+        self.assertEqual(response["payload"]["id"], "persisted-target")
+        self.assertEqual(
+            spotify.requests,
+            [("GET", "/playlists/persisted-target", {"params": None, "json": None})],
+        )
 
     def test_config_flow_requests_only_profile_scope_and_exact_redirect(self):
         application_credentials = importlib.import_module("custom_components.playlist_assistant.application_credentials")
