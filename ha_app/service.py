@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 import os
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -25,6 +26,38 @@ LOGGER = logging.getLogger("playlist_assistant.ha_app")
 DEFAULT_TICK_SECONDS = 60
 DEFAULT_HEALTH_PORT = 8099
 AUTHORIZATION_STATUS_NAME = "spotify-authorization-status.json"
+CASE_C_URL = "http://supervisor/core/api/playlist_assistant/spotify"
+CASE_C_TIMEOUT_SECONDS = 30
+
+
+def run_case_c_diagnostic(playlist_id: str, temporary_name: str) -> str:
+    """Send the fixed Case C request without entering the Spotify client proxy."""
+    try:
+        token = os.environ["SUPERVISOR_TOKEN"]
+    except KeyError:
+        raise RuntimeError("Supervisor authorization is unavailable.") from None
+
+    payload = json.dumps({
+        "operation": "playlist_details",
+        "path": {"playlist_id": playlist_id},
+        "params": None,
+        "json": {"name": temporary_name, "public": False},
+    }).encode("utf-8")
+    request = urllib.request.Request(
+        CASE_C_URL,
+        data=payload,
+        method="POST",
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=CASE_C_TIMEOUT_SECONDS) as response:
+            return f"Case C: HTTP {response.status} — request completed."
+    except urllib.error.HTTPError as error:
+        # Never relay response headers or bodies: they are not needed to locate
+        # this boundary and could contain implementation-sensitive information.
+        return f"Case C: HTTP {error.code} — Home Assistant returned an error response."
+    except OSError:
+        return "Case C: request could not reach Home Assistant."
 
 
 @dataclass(frozen=True)
@@ -99,7 +132,8 @@ class ServiceHost:
         health_server = _start_health_server(lambda: self._connected)
         ingress_server = start_ingress(
             ControlPanel(self.paths, spotify_available=lambda: self._connected,
-                         schedule_changed=self._notify_schedule_changed),
+                         schedule_changed=self._notify_schedule_changed,
+                         case_c_diagnostic=run_case_c_diagnostic),
             bridge_token="",
         )
         LOGGER.info("ingress_control_panel_started port=%d path=/", ingress_server.server_address[1])

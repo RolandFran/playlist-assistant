@@ -114,6 +114,12 @@ class IngressUiRegressionTests(unittest.TestCase):
         self.assertIn("if(activeAction===action)return t[`${action}_active`]", self.app)
         self.assertIn("finally{activeAction=null;actions()}", self.app)
 
+    def test_case_c_diagnostic_is_available_through_ingress_with_two_explicit_inputs(self):
+        self.assertIn('id="case-c-diagnostic"', self.html)
+        self.assertIn("function caseCDiagnostic()", self.app)
+        self.assertIn("api('api/diagnostics/case-c'", self.app)
+        self.assertIn("playlist_id:playlist.value,temporary_name:name.value", self.app)
+
     def test_preview_completion_uses_only_reliable_existing_count(self):
         self.assertIn("action==='preview'&&Number.isInteger(state.today.count)", self.app)
         self.assertNotIn("['preview','publish','run']", self.app)

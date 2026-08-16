@@ -174,6 +174,25 @@ class ControlPanelTests(unittest.TestCase):
         self.assertEqual(workflow.calls, ["sync"])
         self.assertEqual(result["spotify"]["state"], "connected")
 
+    def test_ingress_case_c_diagnostic_uses_only_the_two_temporary_inputs(self):
+        calls = []
+        self.panel = ControlPanel(
+            self.paths,
+            spotify_available=lambda: False,
+            case_c_diagnostic=lambda playlist_id, name: calls.append((playlist_id, name)) or "Case C: HTTP 502 — Home Assistant returned an error response.",
+        )
+        self.ingress = start_ingress(self.panel, bridge_token="bridge-secret", port=0,
+                                     ingress_client_address="127.0.0.1")
+        self.addCleanup(self.ingress.server_close)
+        self.addCleanup(self.ingress.shutdown)
+
+        payload = json.dumps({"playlist_id": "playlist-id", "temporary_name": "Case C"}).encode()
+        with self.request_ingress("/api/diagnostics/case-c", data=payload, method="POST") as response:
+            result = json.loads(response.read())
+
+        self.assertEqual(calls, [("playlist-id", "Case C")])
+        self.assertEqual(result, {"result": "Case C: HTTP 502 — Home Assistant returned an error response."})
+
     def test_pairing_download_is_not_available(self):
         self.ingress = start_ingress(self.panel, bridge_token="bridge-secret", port=0,
                                      ingress_client_address="127.0.0.1")

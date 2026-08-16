@@ -36,12 +36,13 @@ class ControlPanel:
     """Read and change only persistent app state under the selected data path."""
 
     def __init__(self, paths: ApplicationPaths, *, spotify_available: Callable[[], bool], workflow=None,
-                 schedule_changed=None):
+                 schedule_changed=None, case_c_diagnostic=None):
         self.paths = paths
         self.storage = ApplicationStorage(paths.database_path)
         self.spotify_available = spotify_available
         self.workflow = workflow or PlaylistWorkflow(paths, storage=self.storage)
         self.schedule_changed = schedule_changed or (lambda _config: None)
+        self.case_c_diagnostic = case_c_diagnostic
 
     def state(self) -> dict:
         config = self.storage.load_runtime_config()
@@ -105,6 +106,20 @@ class ControlPanel:
         except KeyError as error:
             raise ValueError("Unknown action.") from error
         return self.state()
+
+    def run_case_c_diagnostic(self, values: dict) -> dict:
+        """Run only the temporary metadata request used to locate Case C."""
+        if not isinstance(values, dict):
+            raise ValueError("JSON request body must be an object.")
+        playlist_id = str(values.get("playlist_id", "")).strip()
+        temporary_name = str(values.get("temporary_name", "")).strip()
+        if not playlist_id:
+            raise ValueError("Playlist ID must not be blank.")
+        if not temporary_name:
+            raise ValueError("Temporary playlist name must not be blank.")
+        if self.case_c_diagnostic is None:
+            raise RuntimeError("Case C diagnostic is unavailable.")
+        return {"result": self.case_c_diagnostic(playlist_id, temporary_name)}
 
     def _today_tracks(self) -> list[dict]:
         try:
@@ -210,6 +225,8 @@ def start_ingress(panel: ControlPanel, *, bridge_token: str, port: int = INGRESS
                     raise ValueError("JSON request body must be an object.")
                 if path == "/api/settings":
                     return self._json(200, {"ok": True, "message": "Settings saved.", "state": panel.save_settings(data)})
+                if path == "/api/diagnostics/case-c":
+                    return self._json(200, panel.run_case_c_diagnostic(data))
                 if path.startswith("/api/"): return self._api_error(HTTPStatus.NOT_FOUND, "Unknown API endpoint.")
                 self.send_error(404)
             except (ValueError, RuntimeError) as error:
