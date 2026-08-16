@@ -74,11 +74,13 @@ class SpotifyApi:
             "display_name": display_name if isinstance(display_name, str) else account_id,
         }
 
-    async def async_request(self, method: str, path: str, *, params=None, json=None) -> dict:
+    async def async_request(self, method: str, path: str, *, params=None, json=None, response_observer=None) -> dict:
         """Perform one allow-listed Spotify Web API request with HA-owned OAuth."""
         try:
             response = await self._session.async_request(method, SPOTIFY_API_URL + path, params=params, json=json)
             async with response:
+                if response_observer is not None:
+                    response_observer(response)
                 if response.status == 401:
                     raise SpotifyAuthError
                 if response.status >= 400:

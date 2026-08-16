@@ -17,3 +17,27 @@ run:
 reconfigure_schedule:
   name: Reconfigure schedule
   description: Internal service used by the Playlist Assistant add-on to apply saved scheduling changes.
+
+diagnose_playlist_details:
+  name: Diagnose playlist details
+  description: Temporary diagnostic only. Compares direct Home Assistant OAuth with Playlist Assistant SpotifyApi for a playlist-details PUT; it is not a production fix.
+  fields:
+    playlist_id:
+      required: true
+      selector:
+        text:
+    name:
+      required: true
+      selector:
+        text:
+    public:
+      required: true
+      selector:
+        boolean:
+    variant:
+      required: true
+      selector:
+        select:
+          options:
+            - direct_oauth
+            - spotify_api

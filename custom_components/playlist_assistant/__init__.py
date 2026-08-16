@@ -18,6 +18,8 @@ async def async_setup_entry(hass, entry):
     spotify = None
     if "token" in entry.data:
         from homeassistant.helpers import config_entry_oauth2_flow
+        from .diagnostics import async_diagnose_playlist_details, safe_diagnostic_detail
+        from .spotify import SpotifyRequestError
         implementation = await config_entry_oauth2_flow.async_get_config_entry_implementation(hass, entry)
         spotify = SpotifyApi(config_entry_oauth2_flow.OAuth2Session(hass, entry, implementation))
         # The add-on listener is private to the HA add-on network; Spotify
@@ -72,10 +74,27 @@ async def async_setup_entry(hass, entry):
             values.get("daily_enabled"),
         )
     async def handler(call): await execute(call.service)
+    async def diagnose_playlist_details(call):
+        """Temporary comparison of the direct OAuth and SpotifyApi request paths."""
+        session = config_entry_oauth2_flow.OAuth2Session(hass, entry, implementation)
+        try:
+            return await async_diagnose_playlist_details(
+                session,
+                playlist_id=call.data["playlist_id"],
+                name=call.data["name"],
+                public=call.data["public"],
+                variant=call.data["variant"],
+            )
+        except SpotifyRequestError as error:
+            raise RuntimeError(
+                f"Spotify request failed: HTTP {error.status}: {safe_diagnostic_detail(error.detail)}"
+            ) from None
     if bridge:
         hass.services.async_register(DOMAIN, "reconfigure_schedule", reconfigure_schedule)
     for action in ("sync", "preview", "publish", "run"):
         hass.services.async_register(DOMAIN, action, handler)
+    if spotify:
+        hass.services.async_register(DOMAIN, "diagnose_playlist_details", diagnose_playlist_details)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {"entry": entry, "bridge": bridge, "spotify": spotify, "coordinator": coordinator, "schedule": schedule}
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -83,5 +102,5 @@ async def async_setup_entry(hass, entry):
 async def async_unload_entry(hass, entry):
     data = hass.data[DOMAIN].pop(entry.entry_id)
     data["schedule"].stop()
-    for action in ("sync", "preview", "publish", "run", "reconfigure_schedule"): hass.services.async_remove(DOMAIN, action)
+    for action in ("sync", "preview", "publish", "run", "reconfigure_schedule", "diagnose_playlist_details"): hass.services.async_remove(DOMAIN, action)
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
