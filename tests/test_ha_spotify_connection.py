@@ -173,6 +173,21 @@ class SpotifyConnectionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result, {})
 
+    async def test_playlist_write_accepts_a_none_success_payload(self):
+        api = self.spotify.SpotifyApi(_OAuthSession(_Response(200, None)))
+
+        result = await api.async_request(
+            "PUT", "/playlists/playlist", json={"name": "Today", "public": False}
+        )
+
+        self.assertEqual(result, {})
+
+    async def test_successful_non_object_response_remains_a_connection_error(self):
+        api = self.spotify.SpotifyApi(_OAuthSession(_Response(200, ["not", "an", "object"])))
+
+        with self.assertRaises(self.spotify.SpotifyConnectionError):
+            await api.async_request("PUT", "/playlists/playlist", json={"name": "Today"})
+
     async def test_proxy_request_keeps_400_spotify_detail(self):
         api = self.spotify.SpotifyApi(
             _OAuthSession(_Response(400, {"error": {"message": "Invalid playlist details"}}))
@@ -184,7 +199,7 @@ class SpotifyConnectionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(caught.exception.status, 400)
         self.assertEqual(caught.exception.detail, "Invalid playlist details")
 
-    async def test_playlist_proxy_reuses_the_connected_integration_session(self):
+    async def test_playlist_details_proxy_dispatches_valid_addon_request_to_connected_session(self):
         api_module = importlib.import_module("custom_components.playlist_assistant.api")
 
         class ConnectedSpotify:
@@ -197,7 +212,12 @@ class SpotifyConnectionTests(unittest.IsolatedAsyncioTestCase):
 
         class Request:
             async def json(self):
-                return {"operation": "playlist", "path": {"playlist_id": "persisted-target"}}
+                return {
+                    "operation": "playlist_details",
+                    "path": {"playlist_id": "persisted-target"},
+                    "params": None,
+                    "json": {"name": "Today", "public": False},
+                }
 
         spotify = ConnectedSpotify()
         hass = types.SimpleNamespace(data={"playlist_assistant": {"entry": {"spotify": spotify}}})
@@ -208,8 +228,37 @@ class SpotifyConnectionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["payload"]["id"], "persisted-target")
         self.assertEqual(
             spotify.requests,
-            [("GET", "/playlists/persisted-target", {"params": None, "json": None})],
+            [
+                (
+                    "PUT",
+                    "/playlists/persisted-target",
+                    {"params": None, "json": {"name": "Today", "public": False}},
+                )
+            ],
         )
+
+    async def test_playlist_proxy_rejects_operations_outside_the_allow_list(self):
+        api_module = importlib.import_module("custom_components.playlist_assistant.api")
+
+        class ConnectedSpotify:
+            def __init__(self):
+                self.requests = []
+
+            async def async_request(self, method, path, **kwargs):
+                self.requests.append((method, path, kwargs))
+
+        class Request:
+            async def json(self):
+                return {"operation": "arbitrary_request"}
+
+        spotify = ConnectedSpotify()
+        hass = types.SimpleNamespace(data={"playlist_assistant": {"entry": {"spotify": spotify}}})
+
+        response = await api_module.SpotifyProxyView(hass).post(Request())
+
+        self.assertEqual(response["status_code"], 400)
+        self.assertEqual(response["payload"], {"error": "Spotify connection is unavailable."})
+        self.assertEqual(spotify.requests, [])
 
     def test_config_flow_requests_only_profile_scope_and_exact_redirect(self):
         application_credentials = importlib.import_module("custom_components.playlist_assistant.application_credentials")
