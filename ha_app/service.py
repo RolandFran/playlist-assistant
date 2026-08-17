@@ -26,6 +26,7 @@ DEFAULT_TICK_SECONDS = 60
 DEFAULT_HEALTH_PORT = 8099
 AUTHORIZATION_STATUS_NAME = "spotify-authorization-status.json"
 DEFAULT_LOG_LEVEL = "info"
+LOG_LEVEL_ENVIRONMENT = "PLAYLIST_ASSISTANT_LOG_LEVEL"
 SUPPORTED_LOG_LEVELS = frozenset({"debug", "info", "warning", "error"})
 LEGACY_OPTION_NAMES = frozenset({
     "spotify_client_id",
@@ -49,6 +50,17 @@ class AppOptions:
     @property
     def logging_level(self) -> int:
         return getattr(logging, self.log_level.upper())
+
+
+def configure_logging(options: AppOptions) -> None:
+    """Apply the add-on log level to this process and its job subprocesses."""
+    logging.basicConfig(
+        level=options.logging_level,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        force=True,
+    )
+    os.environ[LOG_LEVEL_ENVIRONMENT] = options.log_level
+    LOGGER.info("configured_log_level=%s", options.log_level)
 
 
 def load_options_file(path: Path) -> AppOptions:
@@ -201,11 +213,7 @@ def main() -> None:
     if not isinstance(raw_options, dict):
         raise ValueError("Add-on options must be a JSON object.")
     options = AppOptions.from_mapping(clean_legacy_options(raw_options))
-    logging.basicConfig(
-        level=options.logging_level,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-        force=True,
-    )
+    configure_logging(options)
     raw_log_level = raw_options.get("log_level")
     if raw_log_level is not None and options.log_level == DEFAULT_LOG_LEVEL and raw_log_level != DEFAULT_LOG_LEVEL:
         LOGGER.warning("invalid_log_level_falling_back_to_info")

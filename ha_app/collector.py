@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 import sqlite3
 from datetime import datetime, timezone
 
@@ -10,7 +11,7 @@ from client import SpotifyClient, SpotifyClientError
 DEFAULT_HISTORY_POLL_MINUTES = 90
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=os.getenv("PLAYLIST_ASSISTANT_LOG_LEVEL", "info").upper(),
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 logger = logging.getLogger("playlist_assistant.collector")
