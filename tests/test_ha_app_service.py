@@ -2,10 +2,18 @@ import json
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from application_paths import ApplicationPaths
-from ha_app.service import AUTHORIZATION_STATUS_NAME, AppOptions, ServiceHost, spotify_environment
+from ha_app.service import (
+    AUTHORIZATION_STATUS_NAME,
+    AppOptions,
+    ServiceHost,
+    clean_legacy_options,
+    load_options_file,
+    spotify_environment,
+)
 from runtime_config import RuntimeConfig
 
 
@@ -22,6 +30,34 @@ class HomeAssistantServiceTests(unittest.TestCase):
     def test_configuration_contains_only_the_ha_proxy(self):
         environment = spotify_environment(self.options, self.paths)
         self.assertEqual(environment, {"PLAYLIST_ASSISTANT_SPOTIFY_PROXY": "http://supervisor/core/api/playlist_assistant/spotify"})
+
+    def test_legacy_options_are_discarded_when_loading_old_options(self):
+        options_file = Path(self.directory.name) / "options.json"
+        old_options = {
+            "spotify_client_id": "client-id-secret",
+            "spotify_client_secret": "client-secret",
+            "bridge_token": "bridge-secret",
+            "log_level": "debug",
+        }
+        options_file.write_text(json.dumps(old_options), encoding="utf-8")
+
+        cleaned = clean_legacy_options(old_options)
+        options = load_options_file(options_file)
+
+        self.assertEqual(cleaned, {"log_level": "debug"})
+        self.assertEqual(options, AppOptions(log_level="debug"))
+
+    def test_log_level_defaults_to_info_and_accepts_each_supported_value(self):
+        self.assertEqual(AppOptions.from_mapping({}), AppOptions(log_level="info"))
+        for level in ("debug", "info", "warning", "error"):
+            with self.subTest(level=level):
+                options = AppOptions.from_mapping({"log_level": level})
+                self.assertEqual(options.log_level, level)
+                self.assertEqual(options.logging_level, getattr(__import__("logging"), level.upper()))
+
+    def test_invalid_log_level_falls_back_to_info(self):
+        options = AppOptions.from_mapping({"log_level": "verbose"})
+        self.assertEqual(options, AppOptions(log_level="info"))
 
     def test_one_tick_without_authorization_is_degraded_and_does_not_run_jobs(self):
         self.assertEqual(self.service.tick(), [])
