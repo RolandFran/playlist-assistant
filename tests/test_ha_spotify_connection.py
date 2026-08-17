@@ -173,6 +173,21 @@ class SpotifyConnectionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result, {})
 
+    async def test_playlist_write_accepts_a_none_success_payload(self):
+        api = self.spotify.SpotifyApi(_OAuthSession(_Response(200, None)))
+
+        result = await api.async_request(
+            "PUT", "/playlists/playlist", json={"name": "Today", "public": False}
+        )
+
+        self.assertEqual(result, {})
+
+    async def test_successful_non_object_response_remains_a_connection_error(self):
+        api = self.spotify.SpotifyApi(_OAuthSession(_Response(200, ["not", "an", "object"])))
+
+        with self.assertRaises(self.spotify.SpotifyConnectionError):
+            await api.async_request("PUT", "/playlists/playlist", json={"name": "Today"})
+
     async def test_proxy_request_keeps_400_spotify_detail(self):
         api = self.spotify.SpotifyApi(
             _OAuthSession(_Response(400, {"error": {"message": "Invalid playlist details"}}))
