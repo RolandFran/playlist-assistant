@@ -1,0 +1,37 @@
+"""Narrow Supervisor-authenticated boundary from the add-on to HA OAuth."""
+from __future__ import annotations
+
+from homeassistant.components.http import HomeAssistantView
+from homeassistant.helpers import config_entry_oauth2_flow
+from .const import DOMAIN
+from .spotify import SpotifyApi, SpotifyAuthError, SpotifyConnectionError, SpotifyRequestError
+
+_OPERATIONS = {
+    "recently_played": ("GET", "/me/player/recently-played"), "user_playlists": ("GET", "/me/playlists"),
+    "playlist_items": ("GET", "/playlists/{playlist_id}/items"), "current_user": ("GET", "/me"),
+    "create_playlist": ("POST", "/me/playlists"), "playlist_details": ("PUT", "/playlists/{playlist_id}"),
+    "replace_items": ("PUT", "/playlists/{playlist_id}/items"), "append_items": ("POST", "/playlists/{playlist_id}/items"),
+}
+
+class SpotifyProxyView(HomeAssistantView):
+    url = "/api/playlist_assistant_historical_test/spotify"
+    name = "api:playlist_assistant_historical_test:spotify"
+    requires_auth = True
+    def __init__(self, hass): self.hass = hass
+    async def post(self, request):
+        try:
+            body = await request.json(); method, template = _OPERATIONS[body["operation"]]
+            entry = next(item["entry"] for item in self.hass.data.get(DOMAIN, {}).values() if item.get("spotify"))
+            implementation = await config_entry_oauth2_flow.async_get_config_entry_implementation(self.hass, entry)
+            api = SpotifyApi(config_entry_oauth2_flow.OAuth2Session(self.hass, entry, implementation))
+            return self.json(await api.async_request(method, template.format(**body.get("path", {})), params=body.get("params"), json=body.get("json")))
+        except SpotifyRequestError as error:
+            headers = {"Retry-After": error.retry_after} if error.retry_after else None
+            payload = {"error": error.detail}
+            if error.reason:
+                payload["reason"] = error.reason
+            return self.json(payload, status_code=error.status, headers=headers)
+        except (KeyError, StopIteration, SpotifyAuthError, SpotifyConnectionError):
+            return self.json({"error": "Spotify connection is unavailable."}, status_code=400)
+
+def async_register_api(hass): hass.http.register_view(SpotifyProxyView(hass))

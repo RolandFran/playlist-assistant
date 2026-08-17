@@ -1,0 +1,22 @@
+name: Playlist Assistant Historical Test
+slug: playlist_assistant_historical_test
+version: "0.1.27"
+description: Playlist Assistant Historical Test brings music you already like back into rotation by building private Spotify playlists from your selected sources and listening history.
+url: https://github.com/RolandFran/playlist-assistant
+startup: application
+init: false
+ingress: true
+ingress_port: 8108
+panel_icon: mdi:play
+homeassistant_api: true
+arch:
+  - aarch64
+  - amd64
+watchdog: http://[HOST]:8109/health
+options: {}
+schema:
+  # Temporary compatibility only: permits options left by add-on versions before
+  # 0.1.11. They are ignored and must not be used for Spotify authentication.
+  spotify_client_id: "str?"
+  spotify_client_secret: "password?"
+  bridge_token: "password?"

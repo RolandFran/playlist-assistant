@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <base href="{{INGRESS_BASE_PATH}}">
+  <title>Playlist Assistant Historical Test</title>
+  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="polish.css">
+</head>
+<body>
+  <main>
+    <header class="app-header">
+      <h1 data-i18n="title"></h1>
+      <div class="global-status" aria-label="Status">
+        <span id="spotify-status" class="status-chip"></span>
+        <span id="preview-status" class="status-chip"></span>
+        <button id="help-button" type="button" aria-label="Help">?</button>
+      </div>
+    </header>
+    <p id="message" role="alert"></p>
+    <div class="dashboard-grid">
+      <section class="playlist-preview">
+        <h2 data-i18n="playlist_preview"></h2>
+        <div class="playlist-toolbar">
+          <input id="filter">
+          <button id="reset-sorting" type="button" data-i18n="reset_sorting"></button>
+        </div>
+        <table>
+          <thead>
+            <tr id="track-columns"></tr>
+          </thead>
+          <tbody id="tracks"></tbody>
+        </table>
+      </section>
+      <aside class="dashboard-sidebar">
+        <section id="settings-section">
+          <h2 data-i18n="settings"></h2>
+          <form id="settings"></form>
+        </section>
+        <section id="spotify-authorization-section">
+          <h2 data-i18n="spotify_authorization"></h2>
+          <div id="spotify-auth"></div>
+        </section>
+        <section>
+          <h2 data-i18n="actions"></h2>
+          <div id="actions"></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+  <dialog id="help-dialog">
+    <button id="help-close" type="button" aria-label="Close">×</button>
+    <h2 data-i18n="help"></h2>
+    <dl id="help-content"></dl>
+  </dialog>
+  <script src="app.js"></script>
+</body>
+</html>
