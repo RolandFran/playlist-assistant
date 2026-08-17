@@ -1,6 +1,6 @@
 name: Playlist Assistant
 slug: playlist_assistant
-version: "0.1.30"
+version: "0.1.31"
 description: Playlist Assistant brings music you already like back into rotation by building private Spotify playlists from your selected sources and listening history.
 url: https://github.com/RolandFran/playlist-assistant
 startup: application
@@ -13,10 +13,7 @@ arch:
   - aarch64
   - amd64
 watchdog: http://[HOST]:8099/health
-options: {}
+options:
+  log_level: info
 schema:
-  # Temporary compatibility only: permits options left by add-on versions before
-  # 0.1.11. They are ignored and must not be used for Spotify authentication.
-  spotify_client_id: "str?"
-  spotify_client_secret: "password?"
-  bridge_token: "password?"
+  log_level: "list(debug|info|warning|error)"

@@ -45,20 +45,17 @@ dependency.
 
 Copy `custom_components/playlist_assistant/` from this repository to
 `/config/custom_components/playlist_assistant/`, restart Home Assistant, then
-add **Playlist Assistant** from Settings → Devices & services. Enter the
-add-on's internal URL (`http://playlist_assistant:8098`) and the same
-`bridge_token` configured in the add-on options. The URL is Docker-network
-internal and the add-on publishes no host port. The token is used only in the
-`X-Playlist-Assistant-Bridge` header and never exposes Spotify credentials or
-OAuth cache data.
+add **Playlist Assistant** from Settings → Devices & services and complete its
+Home Assistant-managed Spotify authorization flow. The add-on publishes no
+host port.
 
 ### Upgrade from add-on versions before 0.1.11
 
-Version 0.1.18 temporarily accepts the former `spotify_client_id`,
-`spotify_client_secret`, and `bridge_token` options so Supervisor can start an
-updated installation that still contains those saved values. The add-on ignores
-them. After it has started, remove those three obsolete fields in the add-on
-Configuration page and save; they must not be used for Spotify authentication.
+At startup, the add-on removes the former `spotify_client_id`,
+`spotify_client_secret`, and `bridge_token` keys from `/data/options.json`.
+They are not used for Spotify authentication. The only add-on configuration is
+the technical **Log level** option; it defaults to `info` and may be set to
+`debug`, `warning`, or `error` for troubleshooting.
 
 The add-on sends schedule-change events to HA Core through the authenticated
 Supervisor Core API. The integration listens for that event and replaces its
