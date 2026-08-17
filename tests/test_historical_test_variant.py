@@ -50,6 +50,16 @@ class HistoricalTestVariantIsolationTests(unittest.TestCase):
         self.assertIn("client.prepare_private_playlist(playlist_id, target_name)", publish)
         self.assertIn("client.replace_playlist_items(", publish)
 
+    def test_installation_uses_a_local_app_not_a_nested_repository_app(self):
+        readme = (VARIANT / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn(
+            "`/addons/playlist_assistant_historical_test/`", readme
+        )
+        self.assertIn("Home Assistant's local app mechanism", readme)
+        self.assertIn("**Local apps** section", readme)
+        self.assertNotIn("Add this repository as a local/custom add-on repository", readme)
+
 
 if __name__ == "__main__":
     unittest.main()

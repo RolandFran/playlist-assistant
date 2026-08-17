@@ -24,20 +24,23 @@ entities, services, and proxy endpoint.
 
 1. Keep the existing production Playlist Assistant add-on and integration
    installed and running; do not replace either directory.
-2. Add this repository as a local/custom add-on repository, then install
-   **Playlist Assistant Historical Test** from
-   `historical_test/playlist_assistant_historical_test/`.
-3. Copy `historical_test/custom_components/playlist_assistant_historical_test/`
+2. Copy `historical_test/playlist_assistant_historical_test/` to
+   `/addons/playlist_assistant_historical_test/` on the Home Assistant host.
+   This uses Home Assistant's local app mechanism; do not add this repository
+   as a custom app repository.
+3. Refresh or reload the Home Assistant App Store. Install **Playlist Assistant
+   Historical Test** from the **Local apps** section.
+4. Copy `historical_test/custom_components/playlist_assistant_historical_test/`
    to `/config/custom_components/playlist_assistant_historical_test/` alongside
    the production `playlist_assistant` directory, then restart Home Assistant
    Core so it discovers the new integration.
-4. Add **Playlist Assistant Historical Test** in Settings > Devices & services
+5. Add **Playlist Assistant Historical Test** in Settings > Devices & services
    and complete its separate Spotify authorization.  Its add-on discovery and
    proxy endpoint use only the historical-test identifiers.
-5. Open the historical-test add-on Ingress page.  Set a dedicated disposable
+6. Open the historical-test add-on Ingress page.  Set a dedicated disposable
    Spotify target playlist; the safe default is `Playlist Assistant Historical
    Test`, never `Today`.  Do not select the production Today playlist.
-6. Run Sync, Preview, then manually Publish.  Record the full result,
+7. Run Sync, Preview, then manually Publish.  Record the full result,
    including whether metadata handling and complete playlist replacement
    succeed, the track count, Spotify request count, and any error response.
 
