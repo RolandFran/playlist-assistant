@@ -1,5 +1,6 @@
 """Focused tests for the HA-owned Spotify connection proof."""
 import importlib
+import re
 import sys
 import types
 import unittest
@@ -225,6 +226,70 @@ class SpotifyConnectionTests(unittest.IsolatedAsyncioTestCase):
             spotify.requests,
             [("GET", "/playlists/persisted-target", {"params": None, "json": None})],
         )
+
+    async def test_playlist_proxy_debug_logs_are_correlated_and_summarize_items_safely(self):
+        api_module = importlib.import_module("custom_components.playlist_assistant.api")
+
+        class ConnectedSpotify:
+            async def async_request(self, *_args, **_kwargs):
+                return {"snapshot_id": "snapshot"}
+
+        class Request:
+            async def json(self):
+                return {
+                    "operation": "replace_items",
+                    "path": {"playlist_id": "target"},
+                    "params": None,
+                    "json": {
+                        "uris": ["spotify:track:one", "spotify:track:two"],
+                        "access_token": "access-token-must-not-appear",
+                        "refresh_token": "refresh-token-must-not-appear",
+                    },
+                }
+
+        hass = types.SimpleNamespace(data={"playlist_assistant": {"entry": {"spotify": ConnectedSpotify()}}})
+        with self.assertLogs("custom_components.playlist_assistant.api", "DEBUG") as logs:
+            response = await api_module.SpotifyProxyView(hass).post(Request())
+
+        output = "\n".join(logs.output)
+        request_ids = re.findall(r"request_id=([0-9a-f]+)", output)
+        self.assertEqual(response["status_code"], 200)
+        self.assertEqual(len(request_ids), 2)
+        self.assertEqual(request_ids[0], request_ids[1])
+        self.assertIn("spotify_proxy_boundary_request", output)
+        self.assertIn("spotify_proxy_boundary_success", output)
+        self.assertIn("item_count': 2", output)
+        self.assertNotIn("spotify:track:one", output)
+        self.assertNotIn("access_token", output)
+        self.assertNotIn("refresh_token", output)
+        self.assertNotIn("access-token-must-not-appear", output)
+        self.assertNotIn("refresh-token-must-not-appear", output)
+
+    async def test_playlist_proxy_request_error_mapping_and_debug_log_are_unchanged(self):
+        api_module = importlib.import_module("custom_components.playlist_assistant.api")
+
+        class FailingSpotify:
+            async def async_request(self, *_args, **_kwargs):
+                raise self_error(502, "Spotify upstream unavailable", reason="UPSTREAM_FAILURE")
+
+        class Request:
+            async def json(self):
+                return {"operation": "playlist", "path": {"playlist_id": "target"}}
+
+        self_error = self.spotify.SpotifyRequestError
+        hass = types.SimpleNamespace(data={"playlist_assistant": {"entry": {"spotify": FailingSpotify()}}})
+        with self.assertLogs("custom_components.playlist_assistant.api", "DEBUG") as logs:
+            response = await api_module.SpotifyProxyView(hass).post(Request())
+
+        self.assertEqual(response, {
+            "payload": {"error": "Spotify upstream unavailable", "reason": "UPSTREAM_FAILURE"},
+            "status_code": 502,
+            "headers": None,
+        })
+        output = "\n".join(logs.output)
+        self.assertIn("spotify_proxy_boundary_request_error", output)
+        self.assertIn("status=502", output)
+        self.assertIn("reason=UPSTREAM_FAILURE", output)
 
     def test_config_flow_requests_only_profile_scope_and_exact_redirect(self):
         application_credentials = importlib.import_module("custom_components.playlist_assistant.application_credentials")
