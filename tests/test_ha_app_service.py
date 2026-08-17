@@ -1,5 +1,7 @@
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -9,8 +11,10 @@ from application_paths import ApplicationPaths
 from ha_app.service import (
     AUTHORIZATION_STATUS_NAME,
     AppOptions,
+    LOG_LEVEL_ENVIRONMENT,
     ServiceHost,
     clean_legacy_options,
+    configure_logging,
     load_options_file,
     spotify_environment,
 )
@@ -54,6 +58,50 @@ class HomeAssistantServiceTests(unittest.TestCase):
                 options = AppOptions.from_mapping({"log_level": level})
                 self.assertEqual(options.log_level, level)
                 self.assertEqual(options.logging_level, getattr(__import__("logging"), level.upper()))
+
+    def test_configure_logging_applies_each_supported_level_and_propagates_it(self):
+        import logging
+
+        for level in ("debug", "info", "warning", "error"):
+            with self.subTest(level=level), \
+                    patch("ha_app.service.logging.basicConfig") as configure, \
+                    patch.dict(os.environ, {}, clear=True):
+                configure_logging(AppOptions(log_level=level))
+
+                configure.assert_called_once_with(
+                    level=getattr(logging, level.upper()),
+                    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+                    force=True,
+                )
+                self.assertEqual(os.environ[LOG_LEVEL_ENVIRONMENT], level)
+
+    def test_configured_log_level_diagnostic_contains_only_the_resolved_name(self):
+        with patch("ha_app.service.logging.basicConfig"), \
+                self.assertLogs("playlist_assistant.ha_app", "INFO") as logs:
+            configure_logging(AppOptions(log_level="debug"))
+
+        self.assertEqual(logs.output, ["INFO:playlist_assistant.ha_app:configured_log_level=debug"])
+
+    def test_pipeline_subprocesses_initialize_debug_logging_from_addon_environment(self):
+        app_directory = Path(__file__).resolve().parents[1] / "ha_app"
+        environment = {**os.environ, LOG_LEVEL_ENVIRONMENT: "debug"}
+
+        for module in ("collector", "sync", "publish"):
+            with self.subTest(module=module):
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        "-c",
+                        "import logging; import " + module
+                        + "; print(logging.getLevelName(logging.getLogger().getEffectiveLevel()))",
+                    ],
+                    cwd=app_directory,
+                    env=environment,
+                    text=True,
+                    capture_output=True,
+                    check=True,
+                )
+                self.assertEqual(result.stdout.strip(), "DEBUG")
 
     def test_invalid_log_level_falls_back_to_info(self):
         options = AppOptions.from_mapping({"log_level": "verbose"})

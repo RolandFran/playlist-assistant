@@ -24,7 +24,7 @@ from client import (
 TARGET_PLAYLIST_NAME = os.getenv("SPOTIFY_TARGET_PLAYLIST", "Today")
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=os.getenv("PLAYLIST_ASSISTANT_LOG_LEVEL", "info").upper(),
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 logger = logging.getLogger("playlist_assistant.publish")

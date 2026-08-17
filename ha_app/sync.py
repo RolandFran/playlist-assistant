@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 import sqlite3
 
 from application_paths import add_data_dir_argument, application_paths_from_args
@@ -10,7 +11,7 @@ SOURCE_MARKER = "#today-source"
 SNAPSHOT_PREFIX = "playlist_snapshot:"
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=os.getenv("PLAYLIST_ASSISTANT_LOG_LEVEL", "info").upper(),
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 logger = logging.getLogger("playlist_assistant.sync")
