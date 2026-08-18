@@ -89,6 +89,35 @@ def validate_scoring_freshness(payload, db_path):
 
     return current
 
+
+def resolve_target_playlist(client, target_name, target_playlist_id):
+    """Resolve a persisted target from the current playlist listing."""
+    if not target_playlist_id:
+        return client.find_owned_playlist_by_name(target_name)
+
+    for playlist in client.get_all_user_playlists():
+        if playlist.get("id") == target_playlist_id:
+            return playlist
+
+    # Preserve the historical write path when Spotify does not return the
+    # persisted target in the current playlist listing. Unknown visibility
+    # still needs correcting before tracks are written.
+    return {"id": target_playlist_id}
+
+
+def prepare_publish_target(client, target_playlist, target_name):
+    """Apply target metadata only when Spotify reports a real difference."""
+    if (
+        target_playlist.get("name") == target_name
+        and target_playlist.get("public") is False
+    ):
+        logger.info("playlist_details_unchanged playlist=%s", target_name)
+        return False
+
+    client.prepare_private_playlist(target_playlist["id"], target_name)
+    return True
+
+
 def print_plan(payload, uris, target_playlist):
     total = len(uris)
     batches = max(1, math.ceil(total / PLAYLIST_WRITE_BATCH_SIZE))
@@ -155,10 +184,10 @@ def main():
     storage = ApplicationStorage(paths.database_path)
     target_name, target_playlist_id = storage.get_target_playlist()
     client = SpotifyClient()
-    target_playlist = (
-        {"id": target_playlist_id}
-        if target_playlist_id
-        else client.find_owned_playlist_by_name(target_name)
+    target_playlist = resolve_target_playlist(
+        client,
+        target_name,
+        target_playlist_id,
     )
 
     print_plan(payload, uris, target_playlist)
@@ -182,13 +211,11 @@ def main():
             f"{target_playlist['id']}"
         )
 
-    playlist_id = target_playlist["id"]
-
-    client.prepare_private_playlist(playlist_id, target_name)
+    prepare_publish_target(client, target_playlist, target_name)
     print("Playlist-Sichtbarkeit auf privat gesetzt.")
 
     client.replace_playlist_items(
-        playlist_id,
+        target_playlist["id"],
         uris,
     )
 

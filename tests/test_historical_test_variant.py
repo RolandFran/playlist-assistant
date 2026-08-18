@@ -41,13 +41,19 @@ class HistoricalTestVariantIsolationTests(unittest.TestCase):
             service,
         )
 
-    def test_publish_path_keeps_historical_operations_and_safe_target_default(self):
+    def test_publish_checkpoint_one_keeps_isolated_target_and_only_changes_metadata_condition(self):
         publish = (ADDON / "publish.py").read_text(encoding="utf-8")
         storage = (ADDON / "application_storage.py").read_text(encoding="utf-8")
 
         self.assertIn('"Playlist Assistant Historical Test"', publish)
         self.assertIn('"Playlist Assistant Historical Test"', storage)
-        self.assertIn("client.prepare_private_playlist(playlist_id, target_name)", publish)
+        self.assertIn("def resolve_target_playlist(", publish)
+        self.assertIn("def prepare_publish_target(", publish)
+        self.assertIn('return {"id": target_playlist_id}', publish)
+        self.assertIn(
+            'client.prepare_private_playlist(target_playlist["id"], target_name)',
+            publish,
+        )
         self.assertIn("client.replace_playlist_items(", publish)
 
     def test_installation_uses_a_local_app_not_a_nested_repository_app(self):
