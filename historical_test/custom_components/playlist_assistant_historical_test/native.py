@@ -18,13 +18,15 @@ class NativeSchedule:
         self._running = False
         self._active_callback = None
 
-    async def _run_once(self, callback):
+    async def _run_once(self, callback, job_name=None):
         """Drop overlapping HA callbacks instead of queuing another pipeline."""
         if self._running:
             return
         self._running = True
         self._active_callback = callback
         try:
+            if job_name == "today":
+                LOGGER.info("daily_run_callback_invoking")
             return await callback()
         finally:
             self._running = False
@@ -32,11 +34,17 @@ class NativeSchedule:
 
     async def _run_daily_once(self, callback):
         """Do not lose the one daily run when a history callback overlaps it."""
+        LOGGER.info("daily_run_once_entered")
         if self._running and self._active_callback == callback:
             return
         while self._running:
             await asyncio.sleep(0.1)
-        return await self._run_once(callback)
+        return await self._run_once(callback, job_name="today")
+
+    def _daily_callback(self, *_):
+        """Run the daily callback as an awaitable Home Assistant will await."""
+        LOGGER.info("daily_schedule_callback_wrapper_entered")
+        return self._run_daily_once(self._run_daily)
 
     def configure(self, interval_minutes, daily_enabled, daily_time):
         """Replace callbacks immediately when persisted cadence changes."""
@@ -51,8 +59,12 @@ class NativeSchedule:
         self.stop()
         self._unsubscribers.append(self._register_interval(timedelta(minutes=interval_minutes), lambda *_: self._run_once(self._run_sync)))
         if daily_enabled:
-            self._daily_unsubscriber = self._register_daily(hour, minute, lambda *_: self._run_daily_once(self._run_daily))
-            LOGGER.info("daily_schedule_registered time=%s second=0", daily_time)
+            self._daily_unsubscriber = self._register_daily(hour, minute, self._daily_callback)
+            LOGGER.info(
+                "daily_schedule_callback_registered hour=%s minute=%s second=0",
+                hour,
+                minute,
+            )
         else:
             LOGGER.info("daily_schedule_disabled")
 

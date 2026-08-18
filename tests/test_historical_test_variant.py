@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 import importlib.util
+import inspect
 import json
 from pathlib import Path
 import sys
 import types
 import unittest
 from unittest.mock import Mock
+
+from historical_test.custom_components.playlist_assistant_historical_test.native import (
+    NativeSchedule,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -136,6 +142,44 @@ class HistoricalTestVariantIsolationTests(unittest.TestCase):
         self.assertIn("Home Assistant's local app mechanism", readme)
         self.assertIn("**Local apps** section", readme)
         self.assertNotIn("Add this repository as a local/custom add-on repository", readme)
+
+
+class HistoricalTestScheduleDiagnosticsTests(unittest.TestCase):
+    def test_daily_diagnostics_preserve_second_zero_registration_and_one_run(self):
+        registrations = []
+        calls = []
+
+        def interval(value, callback):
+            registrations.append(("interval", value, callback))
+            return lambda: None
+
+        def daily(hour, minute, callback):
+            registrations.append(("daily", hour, minute, callback))
+            return lambda: None
+
+        async def run_daily():
+            calls.append("run")
+
+        schedule = NativeSchedule(interval, daily, lambda: None, run_daily)
+        with self.assertLogs(
+            "historical_test.custom_components.playlist_assistant_historical_test.native",
+            "INFO",
+        ) as logs:
+            schedule.configure(90, True, "20:30")
+            daily_registration = registrations[1]
+            self.assertEqual(daily_registration[:3], ("daily", 20, 30))
+            callback_result = daily_registration[3]()
+            self.assertTrue(inspect.isawaitable(callback_result))
+            asyncio.run(callback_result)
+
+        self.assertEqual(calls, ["run"])
+        output = " ".join(logs.output)
+        self.assertIn(
+            "daily_schedule_callback_registered hour=20 minute=30 second=0", output
+        )
+        self.assertIn("daily_schedule_callback_wrapper_entered", output)
+        self.assertIn("daily_run_once_entered", output)
+        self.assertIn("daily_run_callback_invoking", output)
 
 
 class HistoricalTestProxySessionTests(unittest.IsolatedAsyncioTestCase):
