@@ -98,7 +98,7 @@ class HistoricalTestVariantIsolationTests(unittest.TestCase):
             api,
         )
 
-    def test_checkpoint_two_directly_resolves_omitted_private_target(self):
+    def test_checkpoint_three_b_always_writes_matching_target_metadata(self):
         publish = load_historical_publish_module()
         client = Mock()
         client.get_all_user_playlists.return_value = [
@@ -121,9 +121,11 @@ class HistoricalTestVariantIsolationTests(unittest.TestCase):
             "Playlist Assistant Historical Test",
         )
 
-        self.assertFalse(changed)
+        self.assertTrue(changed)
         client.get_playlist.assert_called_once_with("target")
-        client.prepare_private_playlist.assert_not_called()
+        client.prepare_private_playlist.assert_called_once_with(
+            "target", "Playlist Assistant Historical Test"
+        )
 
     def test_installation_uses_a_local_app_not_a_nested_repository_app(self):
         readme = (VARIANT / "README.md").read_text(encoding="utf-8")

@@ -107,14 +107,7 @@ def resolve_target_playlist(client, target_name, target_playlist_id):
 
 
 def prepare_publish_target(client, target_playlist, target_name):
-    """Apply target metadata only when Spotify reports a real difference."""
-    if (
-        target_playlist.get("name") == target_name
-        and target_playlist.get("public") is False
-    ):
-        logger.info("playlist_details_unchanged playlist=%s", target_name)
-        return False
-
+    """Apply target metadata before every Historical Test item replacement."""
     client.prepare_private_playlist(target_playlist["id"], target_name)
     return True
 
