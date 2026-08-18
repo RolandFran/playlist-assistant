@@ -17,7 +17,7 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
         config = (ADDON / "config.yaml").read_text(encoding="utf-8")
         self.assertIn("ingress: true", config)
         self.assertIn("ingress_port: 8098", config)
-        self.assertIn('version: "0.1.32"', config)
+        self.assertIn('version: "0.1.33"', config)
         self.assertIn('panel_icon: mdi:play', config)
         self.assertIn('log_level: info', config)
         self.assertIn('log_level: "list(debug|info|warning|error)"', config)
