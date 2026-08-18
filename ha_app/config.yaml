@@ -1,6 +1,6 @@
 name: Playlist Assistant
 slug: playlist_assistant
-version: "0.1.32"
+version: "0.1.33"
 description: Playlist Assistant brings music you already like back into rotation by building private Spotify playlists from your selected sources and listening history.
 url: https://github.com/RolandFran/playlist-assistant
 startup: application
