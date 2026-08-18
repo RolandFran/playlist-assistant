@@ -80,6 +80,7 @@ class _ProxySpotify:
                 error.code, -1, detail, reason=reason, headers=error.headers
             ) from error
     def current_user_playlists(self, **params): return self._call("user_playlists", params=params)
+    def playlist(self, playlist_id): return self._call("playlist", path={"playlist_id": playlist_id})
     def playlist_items(self, playlist_id, **params): return self._call("playlist_items", path={"playlist_id": playlist_id}, params=params)
     def current_user_recently_played(self, **params): return self._call("recently_played", params=params)
     def current_user_playlist_create(self, name, **kwargs): return self._call("create_playlist", json_body={"name": name, **kwargs})
@@ -365,6 +366,16 @@ class SpotifyClient:
             )
 
         return playlists
+
+    def get_playlist(self, playlist_id: str) -> dict:
+        """Return the current metadata for a persisted target playlist."""
+        return self._normalize_playlist_summary(
+            self._call(
+                "playlist",
+                self._sp.playlist,
+                playlist_id,
+            )
+        )
 
     def get_playlist_items(self, playlist_id: str) -> list[dict]:
         items: list[dict] = []
