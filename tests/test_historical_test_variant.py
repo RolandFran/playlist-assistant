@@ -73,6 +73,10 @@ class HistoricalTestVariantIsolationTests(unittest.TestCase):
         self.assertIn("def prepare_publish_target(", publish)
         self.assertIn('return client.get_playlist(target_playlist_id)', publish)
         self.assertIn(
+            '"persisted target playlist target_playlist_name=%s target_playlist_id=%s"',
+            publish,
+        )
+        self.assertIn(
             'client.prepare_private_playlist(target_playlist["id"], target_name)',
             publish,
         )

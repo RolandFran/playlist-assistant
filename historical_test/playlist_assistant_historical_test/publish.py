@@ -184,6 +184,11 @@ def main():
 
     storage = ApplicationStorage(paths.database_path)
     target_name, target_playlist_id = storage.get_target_playlist()
+    logger.info(
+        "persisted target playlist target_playlist_name=%s target_playlist_id=%s",
+        target_name,
+        target_playlist_id,
+    )
     client = SpotifyClient()
     target_playlist = resolve_target_playlist(
         client,
