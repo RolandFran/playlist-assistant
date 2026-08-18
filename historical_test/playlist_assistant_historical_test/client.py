@@ -65,15 +65,33 @@ class _ProxySpotify:
     def _call(self, operation, *, path=None, params=None, json_body=None):
         payload = json.dumps({"operation": operation, "path": path or {}, "params": params, "json": json_body}).encode()
         request = urllib.request.Request(self.endpoint, data=payload, method="POST", headers={"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"})
+        started = time.monotonic()
+        logger.debug(
+            "spotify_proxy_request operation=%s method=POST endpoint_path=%s path_keys=%s params_keys=%s json_keys=%s",
+            operation,
+            urlparse(self.endpoint).path,
+            sorted((path or {}).keys()),
+            sorted((params or {}).keys()),
+            sorted((json_body or {}).keys()),
+        )
         try:
             with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
-                return json.loads(response.read() or b"{}")
+                body = json.loads(response.read() or b"{}")
+                logger.debug(
+                    "spotify_proxy_response operation=%s method=POST endpoint_path=%s status=%s duration_ms=%d response_type=%s response_keys=%s",
+                    operation, urlparse(self.endpoint).path, getattr(response, "status", 200),
+                    (time.monotonic() - started) * 1000, type(body).__name__,
+                    sorted(body.keys()) if isinstance(body, dict) else [],
+                )
+                return body
         except urllib.error.HTTPError as error:
             detail, reason = _safe_proxy_error_detail(error)
             logger.error(
-                "spotify_proxy_failed operation=%s status=%s detail=%s",
+                "spotify_proxy_failed operation=%s method=POST endpoint_path=%s status=%s duration_ms=%d detail=%s",
                 operation,
+                urlparse(self.endpoint).path,
                 error.code,
+                (time.monotonic() - started) * 1000,
                 detail,
             )
             raise SpotifyException(
