@@ -41,10 +41,14 @@ class NativeSchedule:
             await asyncio.sleep(0.1)
         return await self._run_once(callback, job_name="today")
 
-    def _daily_callback(self, *_):
+    async def _interval_callback(self, *_):
+        """Run the interval callback through Home Assistant's async path."""
+        return await self._run_once(self._run_sync)
+
+    async def _daily_callback(self, *_):
         """Run the daily callback as an awaitable Home Assistant will await."""
         LOGGER.info("daily_schedule_callback_wrapper_entered")
-        return self._run_daily_once(self._run_daily)
+        return await self._run_daily_once(self._run_daily)
 
     def configure(self, interval_minutes, daily_enabled, daily_time):
         """Replace callbacks immediately when persisted cadence changes."""
@@ -57,7 +61,11 @@ class NativeSchedule:
             if not 0 <= hour <= 23 or not 0 <= minute <= 59:
                 raise ValueError("daily_time must be HH:MM")
         self.stop()
-        self._unsubscribers.append(self._register_interval(timedelta(minutes=interval_minutes), lambda *_: self._run_once(self._run_sync)))
+        self._unsubscribers.append(
+            self._register_interval(
+                timedelta(minutes=interval_minutes), self._interval_callback
+            )
+        )
         if daily_enabled:
             self._daily_unsubscriber = self._register_daily(hour, minute, self._daily_callback)
             LOGGER.info(

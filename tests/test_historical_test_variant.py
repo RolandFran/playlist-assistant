@@ -145,7 +145,7 @@ class HistoricalTestVariantIsolationTests(unittest.TestCase):
 
 
 class HistoricalTestScheduleDiagnosticsTests(unittest.TestCase):
-    def test_daily_diagnostics_preserve_second_zero_registration_and_one_run(self):
+    def test_scheduled_callbacks_are_async_and_execute_their_bodies(self):
         registrations = []
         calls = []
 
@@ -157,22 +157,31 @@ class HistoricalTestScheduleDiagnosticsTests(unittest.TestCase):
             registrations.append(("daily", hour, minute, callback))
             return lambda: None
 
-        async def run_daily():
-            calls.append("run")
+        async def run_sync():
+            calls.append("sync")
 
-        schedule = NativeSchedule(interval, daily, lambda: None, run_daily)
+        async def run_daily():
+            calls.append("daily")
+
+        schedule = NativeSchedule(interval, daily, run_sync, run_daily)
         with self.assertLogs(
             "historical_test.custom_components.playlist_assistant_historical_test.native",
             "INFO",
         ) as logs:
             schedule.configure(90, True, "20:30")
+            interval_registration = registrations[0]
             daily_registration = registrations[1]
             self.assertEqual(daily_registration[:3], ("daily", 20, 30))
-            callback_result = daily_registration[3]()
-            self.assertTrue(inspect.isawaitable(callback_result))
-            asyncio.run(callback_result)
+            self.assertTrue(inspect.iscoroutinefunction(interval_registration[2]))
+            self.assertTrue(inspect.iscoroutinefunction(daily_registration[3]))
 
-        self.assertEqual(calls, ["run"])
+            async def invoke_scheduled_callbacks():
+                await interval_registration[2]()
+                await daily_registration[3]()
+
+            asyncio.run(invoke_scheduled_callbacks())
+
+        self.assertEqual(calls, ["sync", "daily"])
         output = " ".join(logs.output)
         self.assertIn(
             "daily_schedule_callback_registered hour=20 minute=30 second=0", output
