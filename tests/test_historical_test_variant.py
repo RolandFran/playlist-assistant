@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import importlib
 import importlib.util
 import json
 from pathlib import Path
 import sys
+import types
 import unittest
 from unittest.mock import Mock
 
@@ -79,6 +81,19 @@ class HistoricalTestVariantIsolationTests(unittest.TestCase):
         self.assertIn('def get_playlist(self, playlist_id: str) -> dict:', client)
         self.assertIn('"playlist": ("GET", "/playlists/{playlist_id}")', api)
 
+    def test_checkpoint_three_reuses_the_connected_historical_proxy_session(self):
+        api = (INTEGRATION / "api.py").read_text(encoding="utf-8")
+
+        self.assertNotIn("config_entry_oauth2_flow", api)
+        self.assertIn(
+            'api = next(item["spotify"] for item in self.hass.data.get(DOMAIN, {}).values() if item.get("spotify"))',
+            api,
+        )
+        self.assertIn(
+            "Reuse the authenticated session established by the integration.",
+            api,
+        )
+
     def test_checkpoint_two_directly_resolves_omitted_private_target(self):
         publish = load_historical_publish_module()
         client = Mock()
@@ -115,6 +130,92 @@ class HistoricalTestVariantIsolationTests(unittest.TestCase):
         self.assertIn("Home Assistant's local app mechanism", readme)
         self.assertIn("**Local apps** section", readme)
         self.assertNotIn("Add this repository as a local/custom add-on repository", readme)
+
+
+class HistoricalTestProxySessionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_playlist_proxy_reuses_the_connected_historical_session(self):
+        module_names = (
+            "homeassistant",
+            "homeassistant.components",
+            "homeassistant.components.http",
+            "historical_test.custom_components.playlist_assistant_historical_test.spotify",
+            "historical_test.custom_components.playlist_assistant_historical_test.api",
+        )
+        original_modules = {name: sys.modules.get(name) for name in module_names}
+
+        homeassistant = types.ModuleType("homeassistant")
+        components = types.ModuleType("homeassistant.components")
+        http = types.ModuleType("homeassistant.components.http")
+
+        class HomeAssistantView:
+            def json(self, payload, status_code=200, headers=None):
+                return {"payload": payload, "status_code": status_code, "headers": headers}
+
+        http.HomeAssistantView = HomeAssistantView
+        spotify_module = types.ModuleType(
+            "historical_test.custom_components.playlist_assistant_historical_test.spotify"
+        )
+        spotify_module.SpotifyApi = object
+        spotify_module.SpotifyAuthError = type("SpotifyAuthError", (Exception,), {})
+        spotify_module.SpotifyConnectionError = type("SpotifyConnectionError", (Exception,), {})
+        spotify_module.SpotifyRequestError = type("SpotifyRequestError", (Exception,), {})
+        sys.modules.update(
+            {
+                "homeassistant": homeassistant,
+                "homeassistant.components": components,
+                "homeassistant.components.http": http,
+                "historical_test.custom_components.playlist_assistant_historical_test.spotify": spotify_module,
+            }
+        )
+        try:
+            api_module = importlib.import_module(
+                "historical_test.custom_components.playlist_assistant_historical_test.api"
+            )
+
+            class ConnectedSpotify:
+                def __init__(self):
+                    self.requests = []
+
+                async def async_request(self, method, path, **kwargs):
+                    self.requests.append((method, path, kwargs))
+                    return {"id": "persisted-target", "name": "Playlist Assistant Historical Test", "public": False}
+
+            class Request:
+                async def json(self):
+                    return {
+                        "operation": "playlist_details",
+                        "path": {"playlist_id": "persisted-target"},
+                        "json": {"name": "Playlist Assistant Historical Test", "public": False},
+                    }
+
+            spotify = ConnectedSpotify()
+            hass = types.SimpleNamespace(
+                data={"playlist_assistant_historical_test": {"entry": {"spotify": spotify}}}
+            )
+
+            response = await api_module.SpotifyProxyView(hass).post(Request())
+
+            self.assertEqual(response["status_code"], 200)
+            self.assertEqual(response["payload"]["id"], "persisted-target")
+            self.assertEqual(
+                spotify.requests,
+                [
+                    (
+                        "PUT",
+                        "/playlists/persisted-target",
+                        {
+                            "params": None,
+                            "json": {"name": "Playlist Assistant Historical Test", "public": False},
+                        },
+                    )
+                ],
+            )
+        finally:
+            for name, module in original_modules.items():
+                if module is None:
+                    sys.modules.pop(name, None)
+                else:
+                    sys.modules[name] = module
 
 
 if __name__ == "__main__":
