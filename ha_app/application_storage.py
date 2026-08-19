@@ -120,7 +120,7 @@ class ApplicationStorage:
                 "SELECT setting_name, setting_value FROM application_setting "
                 "WHERE setting_name IN ('target_playlist_name', 'target_playlist_id')"
             ))
-        return values.get("target_playlist_name", "Today"), values.get("target_playlist_id")
+        return values.get("target_playlist_name", "Playlist Assistant"), values.get("target_playlist_id")
 
     def save_target_playlist(self, name: str, playlist_id: str | None = None) -> None:
         """Persist target identity; a name update never discards its Spotify ID."""

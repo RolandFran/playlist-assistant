@@ -8,24 +8,6 @@ from .native import NativeSchedule
 LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry):
-    setup = {"stage": "entry"}
-    LOGGER.info(
-        "playlist_assistant_config_entry_loaded entry_source=%s token_present=%s",
-        getattr(entry, "source", None),
-        "token" in entry.data,
-    )
-    try:
-        return await _async_setup_entry(hass, entry, setup)
-    except Exception as error:
-        LOGGER.info(
-            "playlist_assistant_setup_failed stage=%s exception_type=%s",
-            setup["stage"],
-            type(error).__name__,
-        )
-        raise
-
-
-async def _async_setup_entry(hass, entry, setup):
     from .spotify import SpotifyApi
     from homeassistant.components import persistent_notification
     from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -35,38 +17,25 @@ async def _async_setup_entry(hass, entry, setup):
     bridge = None
     spotify = None
     if "token" in entry.data:
-        setup["stage"] = "oauth_implementation_resolution"
         from homeassistant.helpers import config_entry_oauth2_flow
         implementation = await config_entry_oauth2_flow.async_get_config_entry_implementation(hass, entry)
-        LOGGER.info("playlist_assistant_oauth_implementation_resolved")
-        setup["stage"] = "oauth_session_construction"
-        session = config_entry_oauth2_flow.OAuth2Session(hass, entry, implementation)
-        LOGGER.info("playlist_assistant_oauth_session_constructed")
-        setup["stage"] = "spotify_api_construction"
-        spotify = SpotifyApi(session)
-        LOGGER.info("playlist_assistant_spotify_api_constructed")
+        spotify = SpotifyApi(config_entry_oauth2_flow.OAuth2Session(hass, entry, implementation))
         # The add-on listener is private to the HA add-on network; Spotify
         # authorization itself is never delegated to it.
-        setup["stage"] = "addon_bridge_discovery"
         bridge = AddonBridge(
             async_get_clientsession(hass),
             await async_discover_addon_base_url(async_get_clientsession(hass)),
             "",
         )
-        LOGGER.info("playlist_assistant_addon_bridge_discovered")
     elif "url" in entry.data and "bridge_token" in entry.data:
         # Existing add-on entries remain untouched while the HA OAuth proof is added.
         bridge = AddonBridge(async_get_clientsession(hass), entry.data["url"], entry.data["bridge_token"])
-        LOGGER.info("playlist_assistant_legacy_bridge_entry_loaded")
     else:
-        LOGGER.info("playlist_assistant_setup_rejected reason=unsupported_entry_data")
         return False
     if spotify and not hass.data.get(f"{DOMAIN}_api_registered"):
-        setup["stage"] = "api_registration"
         from .api import async_register_api
         async_register_api(hass)
         hass.data[f"{DOMAIN}_api_registered"] = True
-        LOGGER.info("playlist_assistant_api_registered")
     coordinator = PlaylistAssistantCoordinator(hass, bridge, spotify, entry)
     async def execute(action):
         try: return await coordinator.async_execute(action)
@@ -95,7 +64,6 @@ async def _async_setup_entry(hass, entry, setup):
             values["daily_enabled"],
             values["daily_time"],
         )
-    setup["stage"] = "initial_coordinator_refresh"
     await coordinator.async_config_entry_first_refresh()
     if bridge:
         await configure(coordinator.data["schedule"])
@@ -114,9 +82,7 @@ async def _async_setup_entry(hass, entry, setup):
     for action in ("sync", "preview", "publish", "run"):
         hass.services.async_register(DOMAIN, action, handler)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {"entry": entry, "bridge": bridge, "spotify": spotify, "coordinator": coordinator, "schedule": schedule}
-    setup["stage"] = "platform_forwarding"
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    LOGGER.info("playlist_assistant_setup_completed")
     return True
 
 async def async_unload_entry(hass, entry):

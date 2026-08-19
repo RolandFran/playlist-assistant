@@ -14,7 +14,10 @@ arch:
   - aarch64
   - amd64
 watchdog: http://[HOST]:8099/health
-options:
-  log_level: info
+options: {}
 schema:
-  log_level: "list(debug|info|warning|error)"
+  # Temporary compatibility only: permits options left by add-on versions before
+  # 0.1.11. They are ignored and must not be used for Spotify authentication.
+  spotify_client_id: "str?"
+  spotify_client_secret: "password?"
+  bridge_token: "password?"

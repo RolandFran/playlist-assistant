@@ -25,55 +25,15 @@ LOGGER = logging.getLogger("playlist_assistant.ha_app")
 DEFAULT_TICK_SECONDS = 60
 DEFAULT_HEALTH_PORT = 8099
 AUTHORIZATION_STATUS_NAME = "spotify-authorization-status.json"
-DEFAULT_LOG_LEVEL = "info"
-LOG_LEVEL_ENVIRONMENT = "PLAYLIST_ASSISTANT_LOG_LEVEL"
-SUPPORTED_LOG_LEVELS = frozenset({"debug", "info", "warning", "error"})
-LEGACY_OPTION_NAMES = frozenset({
-    "spotify_client_id",
-    "spotify_client_secret",
-    "bridge_token",
-})
 
 
 @dataclass(frozen=True)
 class AppOptions:
-    """Validated technical options for the add-on process."""
-
-    log_level: str = DEFAULT_LOG_LEVEL
+    """The add-on has no Spotify credentials or application options."""
 
     @classmethod
     def from_mapping(cls, values: Mapping[str, object]) -> "AppOptions":
-        value = values.get("log_level", DEFAULT_LOG_LEVEL)
-        normalized = value.lower() if isinstance(value, str) else DEFAULT_LOG_LEVEL
-        return cls(log_level=normalized if normalized in SUPPORTED_LOG_LEVELS else DEFAULT_LOG_LEVEL)
-
-    @property
-    def logging_level(self) -> int:
-        return getattr(logging, self.log_level.upper())
-
-
-def configure_logging(options: AppOptions) -> None:
-    """Apply the add-on log level to this process and its job subprocesses."""
-    logging.basicConfig(
-        level=options.logging_level,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-        force=True,
-    )
-    os.environ[LOG_LEVEL_ENVIRONMENT] = options.log_level
-    LOGGER.info("configured_log_level=%s", options.log_level)
-
-
-def load_options_file(path: Path) -> AppOptions:
-    """Load options defensively after startup has retired legacy keys."""
-    values = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(values, dict):
-        raise ValueError("Add-on options must be a JSON object.")
-    return AppOptions.from_mapping(clean_legacy_options(values))
-
-
-def clean_legacy_options(values: Mapping[str, object]) -> dict[str, object]:
-    """Discard retired credentials if Supervisor has not yet removed them."""
-    return {key: value for key, value in values.items() if key not in LEGACY_OPTION_NAMES}
+        return cls()
 
 
 def spotify_environment(options: AppOptions, paths: ApplicationPaths) -> dict[str, str]:
@@ -209,14 +169,8 @@ def main() -> None:
     parser.add_argument("--options-file", required=True)
     parser.add_argument("--tick-seconds", type=int, default=DEFAULT_TICK_SECONDS)
     args = parser.parse_args()
-    raw_options = json.loads(Path(args.options_file).read_text(encoding="utf-8"))
-    if not isinstance(raw_options, dict):
-        raise ValueError("Add-on options must be a JSON object.")
-    options = AppOptions.from_mapping(clean_legacy_options(raw_options))
-    configure_logging(options)
-    raw_log_level = raw_options.get("log_level")
-    if raw_log_level is not None and options.log_level == DEFAULT_LOG_LEVEL and raw_log_level != DEFAULT_LOG_LEVEL:
-        LOGGER.warning("invalid_log_level_falling_back_to_info")
+    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    options = AppOptions.from_mapping(json.loads(Path(args.options_file).read_text(encoding="utf-8")))
     paths = ApplicationPaths.from_data_dir(args.data_dir)
     os.environ.update(spotify_environment(options, paths))
     ServiceHost(paths=paths, options=options, tick_seconds=args.tick_seconds).serve_forever()
