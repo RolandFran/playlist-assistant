@@ -22,16 +22,23 @@ class NativeScheduleTests(unittest.TestCase):
         async def run_daily():
             runs.append("today")
 
-        schedule = NativeSchedule(interval, daily, lambda: None, run_daily)
+        async def run_history():
+            runs.append("history")
+
+        schedule = NativeSchedule(interval, daily, run_history, run_daily)
         with self.assertLogs("custom_components.playlist_assistant.native", "INFO") as logs:
             schedule.configure(90, True, "17:22")
             self.assertTrue(inspect.iscoroutinefunction(callbacks["history"]))
             self.assertTrue(inspect.iscoroutinefunction(callbacks["today"]))
-            asyncio.run(callbacks["today"]())
+            async def invoke_scheduled_callbacks():
+                await callbacks["history"]()
+                await callbacks["today"]()
+
+            asyncio.run(invoke_scheduled_callbacks())
             schedule.stop()
 
         output = " ".join(logs.output)
-        self.assertEqual(runs, ["today"])
+        self.assertEqual(runs, ["history", "today"])
         self.assertIn("daily_schedule_callback_registered hour=17 minute=22 second=0", output)
         self.assertIn("daily_schedule_callback_wrapper_entered", output)
         self.assertIn("daily_run_once_entered", output)
