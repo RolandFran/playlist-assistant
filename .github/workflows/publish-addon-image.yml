@@ -26,7 +26,7 @@ jobs:
       build_matrix: ${{ steps.matrix.outputs.matrix }}
       image_name: ${{ steps.image.outputs.image_name }}
       registry_prefix: ${{ steps.image.outputs.registry_prefix }}
-      version: ${{ steps.info.outputs.version }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Check out the release
         uses: actions/checkout@v7.0.1
@@ -38,7 +38,8 @@ jobs:
         uses: home-assistant/actions/helpers/info@master
         with:
           path: ./ha_app
-      - name: Verify release version
+      - name: Normalize and verify release version
+        id: version
         env:
           APP_VERSION: ${{ steps.info.outputs.version }}
         run: |
@@ -49,6 +50,7 @@ jobs:
               NORMALIZED_APP_VERSION="${NORMALIZED_APP_VERSION:1:${#NORMALIZED_APP_VERSION}-2}"
               ;;
           esac
+          echo "version=${NORMALIZED_APP_VERSION}" >> "$GITHUB_OUTPUT"
           if [[ "${NORMALIZED_APP_VERSION}" != "${RELEASE_TAG}" ]]; then
             echo "::error::Release tag ${RELEASE_TAG} must exactly match ha_app/config.yaml version ${NORMALIZED_APP_VERSION}."
             exit 1
