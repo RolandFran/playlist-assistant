@@ -41,6 +41,7 @@ class NativeScheduleTests(unittest.TestCase):
         self.assertEqual(runs, ["history", "today"])
         self.assertIn("daily_schedule_callback_registered hour=17 minute=22 second=0", output)
         self.assertIn("daily_schedule_callback_wrapper_entered", output)
+        self.assertIn("daily_run_once_entered", output)
         self.assertIn("daily_run_callback_invoking", output)
         self.assertIn("daily_schedule_callback_removed", output)
 

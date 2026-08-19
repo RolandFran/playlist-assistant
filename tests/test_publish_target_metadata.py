@@ -56,7 +56,7 @@ class PublishTargetMetadataTests(unittest.TestCase):
         client.get_playlist.assert_called_once_with("target")
         client.prepare_private_playlist.assert_called_once_with("target", "Test")
 
-    def test_matching_private_target_skips_redundant_details_write(self):
+    def test_matching_private_target_always_writes_the_proven_public_false_metadata(self):
         client = Mock()
         target = {"id": "target", "name": "Test", "public": False}
 

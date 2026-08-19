@@ -149,23 +149,19 @@ class ProxyClientTests(unittest.TestCase):
 
         self.assertEqual(caught.exception.operation, "playlist_items")
         self.assertEqual(caught.exception.http_status, 403)
-        self.assertIn("operation=playlist_items method=POST", logs.output[0])
+        self.assertIn("operation=playlist_items", logs.output[0])
         self.assertIn("status=403", logs.output[0])
         self.assertIn("detail=Insufficient client scope", logs.output[0])
         self.assertNotIn(self.env["SUPERVISOR_TOKEN"], "\n".join(logs.output))
 
-    def test_debug_proxy_logs_have_safe_request_metadata_without_credentials(self):
+    def test_metadata_write_uses_the_historical_playlist_details_operation(self):
         with patch.dict(os.environ, self.env, clear=True), \
                 patch("ha_app.client.urllib.request.urlopen", return_value=_Response({"snapshot_id": "snapshot"})), \
                 self.assertLogs("playlist_assistant.spotify", "DEBUG") as logs:
             SpotifyClient().prepare_private_playlist("playlist", "Today")
 
         output = "\n".join(logs.output)
-        self.assertIn("spotify_proxy_request operation=playlist_details method=POST", output)
-        self.assertIn("path_keys=['playlist_id']", output)
-        self.assertIn("json_keys=['name', 'public']", output)
-        self.assertIn("spotify_proxy_response operation=playlist_details", output)
-        self.assertIn("status=200", output)
+        self.assertIn("spotify_request operation=playlist_change_details request=1", output)
         self.assertNotIn(self.env["SUPERVISOR_TOKEN"], output)
 
     def test_proxy_429_preserves_retry_after_and_quota_reason(self):
