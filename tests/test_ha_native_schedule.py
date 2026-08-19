@@ -32,10 +32,10 @@ class NativeScheduleTests(unittest.TestCase):
 
         output = " ".join(logs.output)
         self.assertEqual(runs, ["today"])
-        self.assertIn("daily_schedule_registered time=17:22 second=0", output)
-        self.assertIn("scheduled_callback_fired job=today", output)
-        self.assertIn("scheduled_run_started job=today", output)
-        self.assertIn("scheduled_run_completed job=today", output)
+        self.assertIn("daily_schedule_callback_registered hour=17 minute=22 second=0", output)
+        self.assertIn("daily_schedule_callback_wrapper_entered", output)
+        self.assertIn("daily_run_once_entered", output)
+        self.assertIn("daily_run_callback_invoking", output)
         self.assertIn("daily_schedule_callback_removed", output)
 
     def test_reconfiguration_unregisters_old_callbacks_before_registering_new_ones(self):

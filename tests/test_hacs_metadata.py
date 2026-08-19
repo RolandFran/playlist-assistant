@@ -30,7 +30,7 @@ def test_home_assistant_manifest_has_hacs_metadata():
 
     assert manifest["domain"] == "playlist_assistant"
     assert manifest["name"] == "Playlist Assistant"
-    assert manifest["version"] == "0.3.6-beta.9"
+    assert manifest["version"] == "0.3.6-beta.11"
     assert manifest["iot_class"] == "cloud_polling"
     assert manifest["documentation"] == "https://github.com/RolandFran/playlist-assistant"
     assert manifest["issue_tracker"] == "https://github.com/RolandFran/playlist-assistant/issues"
