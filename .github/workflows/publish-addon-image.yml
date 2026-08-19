@@ -3,12 +3,19 @@ name: Publish Playlist Assistant app image
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to build
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 env:
   ARCHITECTURES: '["amd64", "aarch64"]'
+  RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
 
 jobs:
   prepare:
@@ -24,7 +31,7 @@ jobs:
       - name: Check out the release
         uses: actions/checkout@v7.0.1
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ env.RELEASE_TAG }}
           persist-credentials: false
       - name: Read app information
         id: info
@@ -34,10 +41,16 @@ jobs:
       - name: Verify release version
         env:
           APP_VERSION: ${{ steps.info.outputs.version }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          if [[ "${APP_VERSION}" != "${RELEASE_TAG}" ]]; then
-            echo "::error::Release tag ${RELEASE_TAG} must exactly match ha_app/config.yaml version ${APP_VERSION}."
+          NORMALIZED_APP_VERSION="${APP_VERSION#"${APP_VERSION%%[![:space:]]*}"}"
+          NORMALIZED_APP_VERSION="${NORMALIZED_APP_VERSION%"${NORMALIZED_APP_VERSION##*[![:space:]]}"}"
+          case "${NORMALIZED_APP_VERSION}" in
+            \"*\"|\'*\')
+              NORMALIZED_APP_VERSION="${NORMALIZED_APP_VERSION:1:${#NORMALIZED_APP_VERSION}-2}"
+              ;;
+          esac
+          if [[ "${NORMALIZED_APP_VERSION}" != "${RELEASE_TAG}" ]]; then
+            echo "::error::Release tag ${RELEASE_TAG} must exactly match ha_app/config.yaml version ${NORMALIZED_APP_VERSION}."
             exit 1
           fi
       - name: Split image reference
@@ -70,7 +83,7 @@ jobs:
       - name: Check out the release
         uses: actions/checkout@v7.0.1
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ env.RELEASE_TAG }}
           persist-credentials: false
       - name: Build and publish image
         uses: home-assistant/builder/actions/build-image@2026.06.0
