@@ -124,5 +124,5 @@ class IntegrationTests(unittest.IsolatedAsyncioTestCase):
                 "daily_time": "17:22",
             }))
         output = " ".join(logs.output)
-        self.assertIn("schedule_change_received history_interval_minutes=45 daily_time=17:22 daily_enabled=True", output)
-        self.assertIn("schedule_change_applied history_interval_minutes=45 daily_time=17:22 daily_enabled=True", output)
+        self.assertIn("daily_schedule_reconfigure_requested daily_enabled=True daily_time=17:22", output)
+        self.assertIn("daily_schedule_configure_completed daily_enabled=True daily_time=17:22", output)

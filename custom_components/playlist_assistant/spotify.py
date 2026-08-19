@@ -100,8 +100,6 @@ class SpotifyApi:
                     payload = await response.json()
                 except (ClientError, ValueError):
                     return {}
-                if payload is None:
-                    return {}
         except (SpotifyAuthError, SpotifyRequestError, OAuth2TokenRequestReauthError):
             raise
         except (ClientError, TimeoutError, ValueError) as err:
