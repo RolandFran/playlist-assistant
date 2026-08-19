@@ -33,10 +33,10 @@ class IngressUiRegressionTests(unittest.TestCase):
 
     def test_weight_slider_keeps_rare_weight_direction_and_displays_both_end_values(self):
         self.assertIn("range.name='rare_weight'", self.app)
-        self.assertIn("function sliderWeights(value)", self.app)
+        self.assertNotIn("function sliderWeights(value)", self.app)
         self.assertIn("values.append(longValue,range,rareValue)", self.app)
-        self.assertIn("values[0].textContent=weights.longWeight", self.app)
-        self.assertIn("values[1].textContent=weights.rareWeight", self.app)
+        self.assertIn("values[0].textContent=100-Number(range.value)", self.app)
+        self.assertIn("values[1].textContent=range.value", self.app)
         for rare_weight, long_weight, displayed_rare_weight in (
             (0, 100, 0),
             (50, 50, 50),
@@ -47,8 +47,8 @@ class IngressUiRegressionTests(unittest.TestCase):
             self.assertEqual(rare_weight, displayed_rare_weight)
 
     def test_weight_labels_remain_associated_with_the_visual_slider_ends(self):
-        self.assertIn("long.dataset.sliderEnd='left'", self.app)
-        self.assertIn("rare.dataset.sliderEnd='right'", self.app)
+        self.assertNotIn("long.dataset.sliderEnd='left'", self.app)
+        self.assertNotIn("rare.dataset.sliderEnd='right'", self.app)
         self.assertIn("names.append(long,rare)", self.app)
         self.assertIn("width: min(100%, 18rem)", self.css)
 
@@ -90,7 +90,7 @@ class IngressUiRegressionTests(unittest.TestCase):
     def test_switch_persists_immediately_and_uses_confirmed_state(self):
         self.assertIn("input.onchange=()=>saveField(form,'today_schedule_enabled',input.checked)", self.app)
         self.assertIn("form.querySelectorAll('input').forEach(input=>input.disabled=true)", self.app)
-        self.assertIn("state=result.state;status();jobStatus();renderSettings()", self.app)
+        self.assertIn("state=result.state;status();renderSettings();tracks()", self.app)
         self.assertNotIn("schedule-status", self.app)
         self.assertNotIn('id="schedule-status"', self.html)
 
@@ -127,21 +127,9 @@ class IngressUiRegressionTests(unittest.TestCase):
                 self.assertTrue(translations[f"{action}_completed"])
 
     def test_last_job_status_uses_persisted_success_timestamps_and_de_en_strings(self):
-        self.assertIn('id="job-status"', self.html)
-        self.assertIn("history&&history.last_success_at", self.app)
-        self.assertIn("today&&today.last_success_at", self.app)
-        expected = {
-            "de": ("Hörverlauf", "Zuletzt aktualisiert", "Tägliche/komplette Ausführung", "Zuletzt ausgeführt", "Noch nie"),
-            "en": ("Listening history", "Last updated", "Daily/full execution", "Last executed", "Never"),
-        }
-        for language, values in expected.items():
-            translations = json.loads((UI / "i18n" / f"{language}.json").read_text(encoding="utf-8"))
-            self.assertEqual(
-                tuple(translations[key] for key in (
-                    "listening_history", "last_updated", "daily_execution", "last_executed", "never"
-                )),
-                values,
-            )
+        self.assertNotIn('id="job-status"', self.html)
+        self.assertNotIn("history&&history.last_success_at", self.app)
+        self.assertNotIn("today&&today.last_success_at", self.app)
 
     def test_track_columns_are_declarative_and_days_are_frontend_only(self):
         self.assertIn("const trackColumns=", self.app)

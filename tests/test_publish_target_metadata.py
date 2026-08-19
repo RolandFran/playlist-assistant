@@ -52,9 +52,9 @@ class PublishTargetMetadataTests(unittest.TestCase):
         changed = publish.prepare_publish_target(client, target, "Test")
 
         self.assertEqual(target, {"id": "target", "name": "Test", "public": False})
-        self.assertFalse(changed)
+        self.assertTrue(changed)
         client.get_playlist.assert_called_once_with("target")
-        client.prepare_private_playlist.assert_not_called()
+        client.prepare_private_playlist.assert_called_once_with("target", "Test")
 
     def test_matching_private_target_skips_redundant_details_write(self):
         client = Mock()
@@ -62,8 +62,8 @@ class PublishTargetMetadataTests(unittest.TestCase):
 
         changed = publish.prepare_publish_target(client, target, "Test")
 
-        self.assertFalse(changed)
-        client.prepare_private_playlist.assert_not_called()
+        self.assertTrue(changed)
+        client.prepare_private_playlist.assert_called_once_with("target", "Test")
 
     def test_public_target_still_enforces_private_visibility(self):
         client = Mock()

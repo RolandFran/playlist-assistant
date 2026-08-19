@@ -43,7 +43,9 @@ async def async_setup_entry(hass, entry):
             persistent_notification.async_create(hass, f"Playlist Assistant: {error}", title="Playlist Assistant")
             raise
     async def sync(_now=None): return await execute("sync")
-    async def run(_now=None): return await execute("run")
+    async def run(_now=None):
+        LOGGER.info("daily_run_callback_entered")
+        return await execute("run")
     schedule = NativeSchedule(lambda interval, callback: async_track_time_interval(hass, callback, interval),
         # Without second=0 HA matches every second of the configured minute.
         lambda hour, minute, callback: async_track_time_change(hass, callback, hour=hour, minute=minute, second=0), sync, run)
@@ -51,26 +53,29 @@ async def async_setup_entry(hass, entry):
         if values is None:
             await coordinator.async_request_refresh()
             values = coordinator.data["schedule"]
+        LOGGER.info(
+            "daily_schedule_configure_before daily_enabled=%s daily_time=%s",
+            values["daily_enabled"],
+            values["daily_time"],
+        )
         schedule.configure(values["history_interval_minutes"], values["daily_enabled"], values["daily_time"])
+        LOGGER.info(
+            "daily_schedule_configure_completed daily_enabled=%s daily_time=%s",
+            values["daily_enabled"],
+            values["daily_time"],
+        )
     await coordinator.async_config_entry_first_refresh()
     if bridge:
         await configure(coordinator.data["schedule"])
     async def reconfigure_schedule(call):
         values = call.data
         LOGGER.info(
-            "schedule_change_received history_interval_minutes=%s daily_time=%s daily_enabled=%s",
-            values.get("history_interval_minutes"),
-            values.get("daily_time"),
+            "daily_schedule_reconfigure_requested daily_enabled=%s daily_time=%s",
             values.get("daily_enabled"),
+            values.get("daily_time"),
         )
         await configure(values)
         await coordinator.async_schedule_changed(values)
-        LOGGER.info(
-            "schedule_change_applied history_interval_minutes=%s daily_time=%s daily_enabled=%s",
-            values.get("history_interval_minutes"),
-            values.get("daily_time"),
-            values.get("daily_enabled"),
-        )
     async def handler(call): await execute(call.service)
     if bridge:
         hass.services.async_register(DOMAIN, "reconfigure_schedule", reconfigure_schedule)

@@ -21,10 +21,12 @@ from client import (
 )
 
 
-TARGET_PLAYLIST_NAME = os.getenv("SPOTIFY_TARGET_PLAYLIST", "Today")
+TARGET_PLAYLIST_NAME = os.getenv(
+    "SPOTIFY_TARGET_PLAYLIST", "Playlist Assistant"
+)
 
 logging.basicConfig(
-    level=os.getenv("PLAYLIST_ASSISTANT_LOG_LEVEL", "info").upper(),
+    level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 logger = logging.getLogger("playlist_assistant.publish")
@@ -89,7 +91,7 @@ def validate_scoring_freshness(payload, db_path):
 
 
 def resolve_target_playlist(client, target_name, target_playlist_id):
-    """Resolve persisted targets to current Spotify metadata when possible."""
+    """Resolve a persisted target from the current playlist listing."""
     if not target_playlist_id:
         return client.find_owned_playlist_by_name(target_name)
 
@@ -105,14 +107,7 @@ def resolve_target_playlist(client, target_name, target_playlist_id):
 
 
 def prepare_publish_target(client, target_playlist, target_name):
-    """Apply target metadata only when Spotify reports a real difference."""
-    if (
-        target_playlist.get("name") == target_name
-        and target_playlist.get("public") is False
-    ):
-        logger.info("playlist_details_unchanged playlist=%s", target_name)
-        return False
-
+    """Apply target metadata before every item replacement."""
     client.prepare_private_playlist(target_playlist["id"], target_name)
     return True
 
@@ -182,6 +177,11 @@ def main():
 
     storage = ApplicationStorage(paths.database_path)
     target_name, target_playlist_id = storage.get_target_playlist()
+    logger.info(
+        "persisted target playlist target_playlist_name=%s target_playlist_id=%s",
+        target_name,
+        target_playlist_id,
+    )
     client = SpotifyClient()
     target_playlist = resolve_target_playlist(
         client,

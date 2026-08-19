@@ -46,7 +46,7 @@ class NativeSchedule:
         return await self._run_once(self._run_sync)
 
     async def _daily_callback(self, *_):
-        """Run the daily callback as a coroutine Home Assistant will await."""
+        """Run the daily callback as an awaitable Home Assistant will await."""
         LOGGER.info("daily_schedule_callback_wrapper_entered")
         return await self._run_daily_once(self._run_daily)
 
