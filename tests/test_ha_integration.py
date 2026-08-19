@@ -125,4 +125,5 @@ class IntegrationTests(unittest.IsolatedAsyncioTestCase):
             }))
         output = " ".join(logs.output)
         self.assertIn("daily_schedule_reconfigure_requested daily_enabled=True daily_time=17:22", output)
+        self.assertIn("daily_schedule_callback_registered hour=17 minute=22 second=0", output)
         self.assertIn("daily_schedule_configure_completed daily_enabled=True daily_time=17:22", output)

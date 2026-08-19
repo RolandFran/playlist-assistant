@@ -4,9 +4,6 @@ import logging
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from .spotify import SpotifyApi, SpotifyAuthError, SpotifyConnectionError
 
-LOGGER = logging.getLogger(__name__)
-
-
 class PlaylistAssistantCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, bridge=None, spotify: SpotifyApi | None = None, entry=None):
         self._hass = hass
@@ -18,8 +15,6 @@ class PlaylistAssistantCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self):
         """Expose only the non-sensitive result of Spotify's /v1/me check."""
         data = await self.bridge.state() if self.bridge else {"preview": {}, "schedule": {}, "jobs": {}}
-        if self.bridge:
-            LOGGER.info("playlist_assistant_addon_bridge_state_loaded")
         if not self.spotify:
             return data
         try:
@@ -28,13 +23,10 @@ class PlaylistAssistantCoordinator(DataUpdateCoordinator):
             if self.entry is not None:
                 self.entry.async_start_reauth(self._hass)
             data["spotify"] = {"state": "reauth_required"}
-            LOGGER.info("playlist_assistant_spotify_profile_result state=reauth_required")
         except SpotifyConnectionError:
             data["spotify"] = {"state": "not_connected"}
-            LOGGER.info("playlist_assistant_spotify_profile_result state=not_connected")
         else:
             data["spotify"] = {"state": "connected", **profile}
-            LOGGER.info("playlist_assistant_spotify_profile_result state=connected")
         return data
 
     async def async_execute(self, action):

@@ -24,14 +24,11 @@ legend { padding: 0 .25rem; color: var(--pa-muted); font-size: .85rem; font-weig
 .input-with-unit { display: flex; align-items: stretch; width: min(100%, 18rem); }
 .input-with-unit input { width: 100%; margin: 0; border-radius: 6px 0 0 6px; }
 .unit { display: grid; place-items: center; min-width: 4rem; padding: 0 .45rem; border: 1px solid var(--pa-border); border-left: 0; border-radius: 0 6px 6px 0; background: #202b39; color: var(--pa-muted); font-weight: 400; }
-.slider-label { display: flex; justify-content: space-between; gap: .5rem; width: min(100%, 18rem); font-size: .85rem; }
+.slider-label { display: flex; justify-content: space-between; gap: .5rem; font-size: .85rem; }
 .slider-label span:last-child { text-align: right; }
 .slider-values { display: grid; grid-template-columns: 2rem minmax(0, 1fr) 2rem; align-items: center; gap: .35rem; width: min(100%, 18rem); }
 .slider-values input { width: 100%; min-width: 0; margin: 0; }
 .slider-values output { color: var(--pa-text); font-size: 1rem; font-weight: 700; text-align: center; }
-.job-status { display: grid; gap: .35rem; margin: 0 .5rem .65rem; }
-.job-status p { display: flex; flex-direction: column; gap: .05rem; margin: 0; color: var(--pa-muted); font-size: .85rem; }
-.job-status strong { color: var(--pa-text); font-size: .9rem; }
 .action-error { color: var(--pa-error); }
 .toggle-row { flex-direction: row; align-items: center; cursor: pointer; }
 .toggle { appearance: none; position: relative; width: 2.5rem; height: 1.35rem; min-width: 2.5rem; margin: 0; border-radius: 99px; background: var(--pa-disabled-bg); cursor: pointer; }

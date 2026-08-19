@@ -1,6 +1,6 @@
 # Changelog
 
-## Integration 0.3.6-beta.11 and add-on 0.1.34
+## Integration 0.3.6-beta.12 and add-on 0.1.35
 
 - Replace the production Home Assistant runtime with the Home Assistant-proven
   Historical Test behavior, adapted to the normal Playlist Assistant identity.

@@ -22,11 +22,11 @@ from client import (
 
 
 TARGET_PLAYLIST_NAME = os.getenv(
-    "SPOTIFY_TARGET_PLAYLIST", "Today"
+    "SPOTIFY_TARGET_PLAYLIST", "Playlist Assistant"
 )
 
 logging.basicConfig(
-    level=os.getenv("PLAYLIST_ASSISTANT_LOG_LEVEL", "info").upper(),
+    level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 logger = logging.getLogger("playlist_assistant.publish")
@@ -107,7 +107,7 @@ def resolve_target_playlist(client, target_name, target_playlist_id):
 
 
 def prepare_publish_target(client, target_playlist, target_name):
-    """Apply target metadata before every Playlist Assistant item replacement."""
+    """Apply target metadata before every item replacement."""
     client.prepare_private_playlist(target_playlist["id"], target_name)
     return True
 
