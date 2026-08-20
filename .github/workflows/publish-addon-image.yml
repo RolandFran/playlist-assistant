@@ -60,8 +60,47 @@ jobs:
         env:
           IMAGE: ${{ steps.info.outputs.image }}
         run: |
-          echo "image_name=${IMAGE##*/}" >> "$GITHUB_OUTPUT"
-          echo "registry_prefix=${IMAGE%/*}" >> "$GITHUB_OUTPUT"
+          NORMALIZED_IMAGE="${IMAGE#"${IMAGE%%[![:space:]]*}"}"
+          NORMALIZED_IMAGE="${NORMALIZED_IMAGE%"${NORMALIZED_IMAGE##*[![:space:]]}"}"
+          case "${NORMALIZED_IMAGE}" in
+            \"*\"|\'*\')
+              NORMALIZED_IMAGE="${NORMALIZED_IMAGE:1:${#NORMALIZED_IMAGE}-2}"
+              ;;
+          esac
+          echo "image_name=${NORMALIZED_IMAGE##*/}" >> "$GITHUB_OUTPUT"
+          echo "registry_prefix=${NORMALIZED_IMAGE%/*}" >> "$GITHUB_OUTPUT"
+      - name: Validate Docker image references
+        env:
+          IMAGE_NAME: ${{ steps.image.outputs.image_name }}
+          REGISTRY_PREFIX: ${{ steps.image.outputs.registry_prefix }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          for VALUE_NAME in REGISTRY_PREFIX IMAGE_NAME VERSION; do
+            VALUE="${!VALUE_NAME}"
+            if [[ -z "${VALUE}" || "${VALUE}" == *\"* || "${VALUE}" == *\'* ]]; then
+              echo "::error::${VALUE_NAME} must be non-empty and must not contain quote characters."
+              exit 1
+            fi
+          done
+
+          NAME_COMPONENT='[a-z0-9]+([._-][a-z0-9]+)*'
+          REGISTRY_PREFIX_PATTERN="^${NAME_COMPONENT}(\/${NAME_COMPONENT})+$"
+          IMAGE_NAME_PATTERN="^${NAME_COMPONENT}$"
+          VERSION_PATTERN='^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'
+          IMAGE_REFERENCE_PATTERN="^${NAME_COMPONENT}(\/${NAME_COMPONENT})+:([A-Za-z0-9_][A-Za-z0-9_.-]{0,127})$"
+          if ! [[ "${REGISTRY_PREFIX}" =~ ${REGISTRY_PREFIX_PATTERN} ]] \
+            || ! [[ "${IMAGE_NAME}" =~ ${IMAGE_NAME_PATTERN} ]] \
+            || ! [[ "${VERSION}" =~ ${VERSION_PATTERN} ]]; then
+            echo "::error::Invalid Docker image components: ${REGISTRY_PREFIX}/${IMAGE_NAME}:${VERSION}"
+            exit 1
+          fi
+          for ARCHITECTURE in amd64 aarch64; do
+            IMAGE_REFERENCE="${REGISTRY_PREFIX}/${ARCHITECTURE}-${IMAGE_NAME}:${VERSION}"
+            if ! [[ "${IMAGE_REFERENCE}" =~ ${IMAGE_REFERENCE_PATTERN} ]]; then
+              echo "::error::Invalid Docker image reference: ${IMAGE_REFERENCE}"
+              exit 1
+            fi
+          done
       - name: Prepare multi-architecture build matrix
         id: matrix
         uses: home-assistant/builder/actions/prepare-multi-arch-matrix@2026.06.0
