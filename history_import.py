@@ -31,6 +31,18 @@ class HistoryImportResult:
     success: bool
     error: Optional[str] = None
 
+    def to_dict(self) -> dict:
+        """Return the result in a JSON-safe form for the Ingress client."""
+        return {
+            "files_processed": self.files_processed,
+            "records_read": self.records_read,
+            "plays_inserted": self.plays_inserted,
+            "duplicates_skipped": self.duplicates_skipped,
+            "invalid_records": self.invalid_records,
+            "success": self.success,
+            "error": self.error,
+        }
+
 
 def import_extended_history(
     file_paths: Iterable[str | Path],

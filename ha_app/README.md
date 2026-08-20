@@ -32,6 +32,12 @@ when authorization is missing. Changing the target playlist name keeps its
 persisted Spotify ID and real publishing renames that same playlist instead
 of creating another one.
 
+Data Management is separate from normal settings and exports only the
+`history` table as a Spotify Extended Streaming History-compatible JSON array.
+An optional UTC From date includes records from that date's midnight onward.
+The same section imports one or more compatible JSON files transactionally;
+it restores neither application settings nor Spotify/Home Assistant state.
+
 ## Install for local testing
 
 Do not copy these files into an existing configuration unless you deliberately
