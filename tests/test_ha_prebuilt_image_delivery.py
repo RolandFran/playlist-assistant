@@ -33,7 +33,7 @@ class HomeAssistantPrebuiltImageDeliveryTests(unittest.TestCase):
         config = (ROOT / "ha_app" / "config.yaml").read_text(encoding="utf-8")
         workflow = (ROOT / ".github" / "workflows" / "publish-addon-image.yml").read_text(encoding="utf-8")
 
-        self.assertIn('version: "0.1.36"', config)
+        self.assertIn('version: "0.1.37"', config)
         self.assertIn('image: "ghcr.io/rolandfran/playlist-assistant"', config)
         self.assertIn("types: [published]", workflow)
         self.assertIn("workflow_dispatch:", workflow)
@@ -67,15 +67,15 @@ class HomeAssistantPrebuiltImageDeliveryTests(unittest.TestCase):
 
     def test_quoted_config_version_matches_release_tag(self):
         config_version = self.config_version()
-        release_tag = "0.1.36"
+        release_tag = "0.1.37"
 
-        self.assertEqual(config_version, '"0.1.36"')
+        self.assertEqual(config_version, '"0.1.37"')
         self.assertEqual(self.normalize_config_version(config_version), release_tag)
 
     def test_quoted_helper_output_becomes_normalized_workflow_output(self):
-        helper_output = '"0.1.36"'
+        helper_output = '"0.1.37"'
 
-        self.assertTrue(self.release_version_matches(helper_output, "0.1.36"))
+        self.assertTrue(self.release_version_matches(helper_output, "0.1.37"))
 
     def test_quoted_helper_image_becomes_registry_prefix_and_image_name(self):
         registry_prefix, image_name = self.split_helper_image(
@@ -85,18 +85,18 @@ class HomeAssistantPrebuiltImageDeliveryTests(unittest.TestCase):
         self.assertEqual(registry_prefix, "ghcr.io/rolandfran")
         self.assertEqual(image_name, "playlist-assistant")
 
-        version = "0.1.36"
+        version = "0.1.37"
         self.assertEqual(
             f"{registry_prefix}/amd64-{image_name}:{version}",
-            "ghcr.io/rolandfran/amd64-playlist-assistant:0.1.36",
+            "ghcr.io/rolandfran/amd64-playlist-assistant:0.1.37",
         )
         self.assertEqual(
             f"{registry_prefix}/aarch64-{image_name}:{version}",
-            "ghcr.io/rolandfran/aarch64-playlist-assistant:0.1.36",
+            "ghcr.io/rolandfran/aarch64-playlist-assistant:0.1.37",
         )
 
     def test_mismatching_release_tag_still_fails_version_match(self):
         config_version = self.config_version()
-        release_tag = "0.1.37"
+        release_tag = "0.1.36"
 
         self.assertFalse(self.release_version_matches(config_version, release_tag))

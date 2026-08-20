@@ -17,7 +17,7 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
         config = (ADDON / "config.yaml").read_text(encoding="utf-8")
         self.assertIn("ingress: true", config)
         self.assertIn("ingress_port: 8098", config)
-        self.assertIn('version: "0.1.36"', config)
+        self.assertIn('version: "0.1.37"', config)
         self.assertIn('image: "ghcr.io/rolandfran/playlist-assistant"', config)
         self.assertIn('panel_icon: mdi:play', config)
         self.assertNotIn('log_level: info', config)
