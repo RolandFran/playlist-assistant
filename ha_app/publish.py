@@ -107,7 +107,7 @@ def resolve_target_playlist(client, target_name, target_playlist_id):
 
 
 def prepare_publish_target(client, target_playlist, target_name):
-    """Apply target metadata before every item replacement."""
+    """Apply target metadata before every Historical Test item replacement."""
     client.prepare_private_playlist(target_playlist["id"], target_name)
     return True
 
