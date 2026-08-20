@@ -35,3 +35,16 @@ never-run value is shown until the corresponding job has completed.
 
 Last-played values are shown relative to your local time. Hover over a value
 to see its exact local timestamp.
+
+## Data Management
+
+Data Management exports only listening-history records from the `history`
+table. Choose an optional From date to export records from that UTC date at
+midnight onwards; leave it blank to export all available History. The JSON
+download is compatible with Spotify Extended Streaming History.
+
+Use History Import in the same section to select one or more Spotify or
+Playlist Assistant History JSON exports. Imports are transactional and skip
+plays already present with the same timestamp and Spotify track ID. They do
+not import settings, playlists, schedules, OAuth data, or Home Assistant
+configuration.

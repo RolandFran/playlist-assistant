@@ -17,7 +17,7 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
         config = (ADDON / "config.yaml").read_text(encoding="utf-8")
         self.assertIn("ingress: true", config)
         self.assertIn("ingress_port: 8098", config)
-        self.assertIn('version: "0.1.37"', config)
+        self.assertIn('version: "0.1.38"', config)
         self.assertIn('image: "ghcr.io/rolandfran/playlist-assistant"', config)
         self.assertIn('panel_icon: mdi:play', config)
         self.assertNotIn('log_level: info', config)
@@ -65,5 +65,6 @@ class HomeAssistantAddonLayoutTests(unittest.TestCase):
             "run.py", "application_paths.py", "application_storage.py",
             "runtime.py", "runtime_config.py", "db_state.py", "collector.py",
             "sync.py", "scoring.py", "publish.py", "client.py",
+            "history_import.py", "history_export.py",
         ):
             self.assertTrue((ADDON / name).is_file(), name)

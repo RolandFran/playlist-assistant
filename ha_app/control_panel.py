@@ -6,15 +6,20 @@ import json
 import hmac
 import logging
 import sqlite3
+import tempfile
+from email.parser import BytesParser
+from email.policy import default as email_policy
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
 from typing import Callable
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from application_paths import ApplicationPaths
 from application_storage import ApplicationStorage
+from history_export import export_extended_history
+from history_import import import_extended_history
 from runtime_config import RuntimeConfig
 from workflow import PlaylistWorkflow
 
@@ -22,6 +27,7 @@ from workflow import PlaylistWorkflow
 INGRESS_PORT = 8098
 APP_DIR = Path(__file__).parent
 LOGGER = logging.getLogger("playlist_assistant.control_panel")
+MAX_HISTORY_IMPORT_BYTES = 128 * 1024 * 1024
 
 
 class SettingsError(ValueError):
@@ -106,6 +112,14 @@ class ControlPanel:
             raise ValueError("Unknown action.") from error
         return self.state()
 
+    def export_history(self, from_date: str | None) -> list[dict]:
+        """Export only listening-history rows without changing application state."""
+        return export_extended_history(self.paths.database_path, from_date=from_date)
+
+    def import_history(self, file_paths: list[Path]) -> dict:
+        """Import browser-uploaded Extended Streaming History files transactionally."""
+        return import_extended_history(file_paths, db_path=self.paths.database_path).to_dict()
+
     def _today_tracks(self) -> list[dict]:
         try:
             payload = json.loads(self.paths.today_tracks_path.read_text(encoding="utf-8"))
@@ -167,6 +181,34 @@ def start_ingress(panel: ControlPanel, *, bridge_token: str, port: int = INGRESS
             self.send_response(status); self.send_header("Content-Type", "application/json; charset=utf-8"); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
         def _api_error(self, status, message):
             self._json(status, {"error": message})
+        def _history_export(self, from_date):
+            records = panel.export_history(from_date)
+            suffix = f"-{from_date}" if from_date else ""
+            data = json.dumps(records, ensure_ascii=False, indent=2).encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="playlist-assistant-history{suffix}.json"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers(); self.wfile.write(data)
+        def _uploaded_history_files(self, body):
+            content_type = self.headers.get("Content-Type", "")
+            if not content_type.lower().startswith("multipart/form-data"):
+                raise ValueError("History import requires JSON file uploads.")
+            message = BytesParser(policy=email_policy).parsebytes(
+                f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode() + body
+            )
+            files = []
+            for part in message.iter_attachments():
+                if part.get_content_disposition() != "form-data" or part.get_param("name", header="content-disposition") != "files":
+                    continue
+                filename = Path(part.get_filename() or "history.json").name
+                payload = part.get_payload(decode=True)
+                if not filename or payload is None:
+                    raise ValueError("Each uploaded History file needs a name and content.")
+                files.append((filename, payload))
+            if not files:
+                raise ValueError("Select at least one History JSON file.")
+            return files
         def _ingress_base_path(self):
             path = self.headers.get("X-Ingress-Path", "/")
             if not path.startswith("/") or path.startswith("//"):
@@ -180,6 +222,15 @@ def start_ingress(panel: ControlPanel, *, bridge_token: str, port: int = INGRESS
             if not self._allow_ingress(api=path.startswith("/api/")): return
             if path == "/api/state":
                 return self._json(200, panel.state())
+            if path == "/api/history/export":
+                query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+                from_dates = query.get("from_date", [""])
+                if len(from_dates) != 1:
+                    return self._api_error(HTTPStatus.BAD_REQUEST, "Use one from date.")
+                try:
+                    return self._history_export(from_dates[0])
+                except ValueError as error:
+                    return self._api_error(HTTPStatus.BAD_REQUEST, str(error))
             if path in ("/api/i18n/de", "/api/i18n/en"):
                 lang = path.rsplit("/", 1)[-1]
                 return self._json(200, json.loads((APP_DIR / "ui" / "i18n" / f"{lang}.json").read_text(encoding="utf-8")))
@@ -199,10 +250,20 @@ def start_ingress(panel: ControlPanel, *, bridge_token: str, port: int = INGRESS
                 except (ValueError, RuntimeError) as error: return self._json(400, {"error": str(error)})
             if not self._allow_ingress(api=path.startswith("/api/")): return
             try:
-                # Actions are server-side triggers. The Ingress UI deliberately
-                # posts no payload, so body validation applies only to settings.
                 if path.startswith("/api/actions/"):
                     return self._json(200, panel.run_action(path.rsplit("/", 1)[-1]))
+                if path == "/api/history/import":
+                    size = int(self.headers.get("Content-Length", "0"))
+                    if size < 1 or size > MAX_HISTORY_IMPORT_BYTES:
+                        raise ValueError("Invalid History upload size.")
+                    files = self._uploaded_history_files(self.rfile.read(size))
+                    with tempfile.TemporaryDirectory(prefix="playlist-assistant-history-") as directory:
+                        paths = []
+                        for index, (filename, payload) in enumerate(files):
+                            upload = Path(directory) / f"{index:03d}-{filename}"
+                            upload.write_bytes(payload)
+                            paths.append(upload)
+                        return self._json(200, {"result": panel.import_history(paths)})
                 size = int(self.headers.get("Content-Length", "0"))
                 if size < 1 or size > 64 * 1024: raise ValueError("Invalid upload size.")
                 data = json.loads(self.rfile.read(size) or b"{}")

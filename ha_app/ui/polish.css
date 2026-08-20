@@ -35,5 +35,8 @@ legend { padding: 0 .25rem; color: var(--pa-muted); font-size: .85rem; font-weig
 .toggle::after { content: ""; position: absolute; top: .16rem; left: .16rem; width: .9rem; height: .9rem; border-radius: 50%; background: white; transition: transform .15s; }
 .toggle:checked { background: var(--pa-accent-strong); }
 .toggle:checked::after { transform: translateX(1.15rem); }
+.data-management-result { min-height: 1.4rem; color: var(--pa-muted); font-size: .9rem; }
+.data-management-result.ok { color: var(--pa-success); }
+.data-management-result.error { color: var(--pa-error); }
 #help-button { width: 2.25rem; height: 2.25rem; margin: 0; border-color: transparent; background: transparent; font-weight: 700; }
 #help-button:hover, #help-button:focus-visible { background: var(--pa-panel-hover); border-color: var(--pa-border); }
