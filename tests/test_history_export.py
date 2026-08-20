@@ -39,7 +39,9 @@ class HistoryExportTests(unittest.TestCase):
         self.assertIsNone(records[0]["master_metadata_album_album_name"])
         self.assertIsNone(records[0]["skipped"])
         self.assertIsNone(records[0]["platform"])
-        self.assertIsNone(records[0]["ip_addr_decrypted"])
+        self.assertIsNone(records[0]["ip_addr"])
+        self.assertNotIn("ip_addr_decrypted", records[0])
+        self.assertNotIn("user_agent_decrypted", records[0])
         self.assertIsNone(records[0]["audiobook_title"])
         self.assertIsNone(records[0]["offline_timestamp"])
 

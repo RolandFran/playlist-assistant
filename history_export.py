@@ -11,8 +11,7 @@ from pathlib import Path
 SPOTIFY_HISTORY_PLACEHOLDERS = {
     "platform": None,
     "conn_country": None,
-    "ip_addr_decrypted": None,
-    "user_agent_decrypted": None,
+    "ip_addr": None,
     "episode_name": None,
     "episode_show_name": None,
     "spotify_episode_uri": None,
